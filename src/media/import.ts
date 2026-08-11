@@ -3,6 +3,35 @@ import type { Clip } from "../doc/types";
 
 const VIDEO_EXT = ["mp4", "mov", "webm", "mkv", "m4v"];
 
+/**
+ * Turn a MediaError into something that says what to actually do about it.
+ *
+ * The common case on Linux is a perfectly valid H.264 mp4 that the webview
+ * cannot decode, because WebKitGTK delegates to GStreamer and the H.264
+ * decoder ships in a separate package. That surfaces as a bare "decode failed",
+ * which is useless on its own.
+ */
+function describeMediaError(v: HTMLVideoElement, src: string): string {
+  const err = v.error;
+  const detail = err?.message ? ` (${err.message})` : "";
+
+  if (!err || err.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) {
+    return (
+      "This video's codec can't be decoded here. WebKitGTK uses GStreamer, " +
+      "and H.264 support lives in a separate package — install it with " +
+      "`sudo pacman -S gst-libav` (Arch) or `gstreamer1.0-libav` (Debian/Ubuntu), " +
+      `then reopen the file.${detail}`
+    );
+  }
+  if (err.code === MediaError.MEDIA_ERR_DECODE) {
+    return `The file decoded partway then failed — it may be truncated.${detail}`;
+  }
+  if (err.code === MediaError.MEDIA_ERR_NETWORK) {
+    return `Could not read the file from disk: ${src}${detail}`;
+  }
+  return `Could not open the video.${detail}`;
+}
+
 /** Read duration and pixel dimensions without showing the element. */
 function probe(src: string): Promise<{ duration: number; width: number; height: number }> {
   return new Promise((resolve, reject) => {
@@ -17,7 +46,7 @@ function probe(src: string): Promise<{ duration: number; width: number; height: 
       });
       v.src = "";
     };
-    v.onerror = () => reject(new Error(`Could not read video: ${src}`));
+    v.onerror = () => reject(new Error(describeMediaError(v, src)));
     v.src = src;
   });
 }
