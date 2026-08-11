@@ -62,7 +62,24 @@ export interface FrameStyle {
 
 export type Background =
   | { kind: "solid"; color: string }
-  | { kind: "linear"; from: string; to: string; angle: number };
+  | { kind: "linear"; from: string; to: string; angle: number }
+  | { kind: "radial"; from: string; to: string };
+
+/**
+ * One piece of the source video on the timeline.
+ *
+ * Cutting never touches the file: a split just becomes two segments over the
+ * same source, so trims stay non-destructive and fully reversible.
+ *
+ * `srcStart`/`srcEnd` are times in the source. Timeline length is
+ * (srcEnd - srcStart) / speed, so speeding a segment up shortens the timeline.
+ */
+export interface Segment {
+  id: string;
+  srcStart: number;
+  srcEnd: number;
+  speed: number;
+}
 
 export interface Clip {
   /** Source URL the <video> element loads (asset:// under Tauri, blob: in the
@@ -80,6 +97,8 @@ export interface Doc {
   version: 1;
   output: { width: number; height: number };
   clip: Clip | null;
+  /** Ordered cuts of the source. Empty until a recording is imported. */
+  segments: Segment[];
   background: Background;
   frame: FrameStyle;
   blocks: Block[];

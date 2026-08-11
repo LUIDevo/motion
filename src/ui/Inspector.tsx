@@ -1,5 +1,7 @@
 import { useStore } from "../doc/store";
+import { segmentLength } from "../doc/time";
 import { EASE_NAMES } from "../render/easing";
+import { PRESETS, backgroundCss, sameBackground } from "../render/backgrounds";
 import type { Background } from "../doc/types";
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
@@ -147,6 +149,73 @@ function ZoomPanel({ id }: { id: string }) {
   );
 }
 
+const SPEEDS = [0.5, 1, 1.5, 2, 4];
+
+function SegmentPanel({ id }: { id: string }) {
+  const seg = useStore((s) => s.doc.segments.find((x) => x.id === id))!;
+  const count = useStore((s) => s.doc.segments.length);
+  const setSpeed = useStore((s) => s.setSegmentSpeed);
+  const remove = useStore((s) => s.removeSegment);
+
+  return (
+    <>
+      <div className="panel-head">
+        <h2>Clip</h2>
+        <button
+          className="ghost danger"
+          onClick={() => remove(id)}
+          disabled={count <= 1}
+          title={count <= 1 ? "The timeline needs at least one clip" : "Delete this clip"}
+        >
+          Delete
+        </button>
+      </div>
+
+      <div className="section">
+        <div className="section-title">Speed</div>
+        <div className="chips">
+          {SPEEDS.map((v) => (
+            <button
+              key={v}
+              className={`chip${Math.abs(seg.speed - v) < 1e-6 ? " selected" : ""}`}
+              onClick={() => setSpeed(id, v)}
+            >
+              {v}×
+            </button>
+          ))}
+        </div>
+        <Row label="Custom">
+          <Slider
+            value={seg.speed}
+            min={0.25}
+            max={8}
+            step={0.05}
+            suffix="×"
+            onChange={(v) => setSpeed(id, v)}
+          />
+        </Row>
+      </div>
+
+      <div className="section">
+        <div className="section-title">Source range</div>
+        <Row label="In">
+          <span className="static-value">{seg.srcStart.toFixed(2)}s</span>
+        </Row>
+        <Row label="Out">
+          <span className="static-value">{seg.srcEnd.toFixed(2)}s</span>
+        </Row>
+        <Row label="On timeline">
+          <span className="static-value">{segmentLength(seg).toFixed(2)}s</span>
+        </Row>
+        <p className="note">
+          Drag the clip's edges on the timeline to trim. Splitting never touches
+          the source file.
+        </p>
+      </div>
+    </>
+  );
+}
+
 function ScenePanel() {
   const doc = useStore((s) => s.doc);
   const patch = useStore((s) => s.patchDoc);
@@ -164,18 +233,33 @@ function ScenePanel() {
 
       <div className="section">
         <div className="section-title">Background</div>
+        <div className="swatches">
+          {PRESETS.map((p) => (
+            <button
+              key={p.name}
+              className={`swatch${sameBackground(p.bg, bg) ? " selected" : ""}`}
+              style={{ background: backgroundCss(p.bg) }}
+              onClick={() => setBg(p.bg)}
+              title={p.name}
+            />
+          ))}
+        </div>
         <Row label="Type">
           <select
             value={bg.kind}
-            onChange={(e) =>
+            onChange={(e) => {
+              const k = e.target.value;
               setBg(
-                e.target.value === "solid"
+                k === "solid"
                   ? { kind: "solid", color: "#EDEDED" }
-                  : { kind: "linear", from: "#EDEDED", to: "#DCDCDC", angle: 120 },
-              )
-            }
+                  : k === "radial"
+                    ? { kind: "radial", from: "#FFFFFF", to: "#D9DDE3" }
+                    : { kind: "linear", from: "#EDEDED", to: "#DCDCDC", angle: 120 },
+              );
+            }}
           >
-            <option value="linear">Gradient</option>
+            <option value="linear">Linear</option>
+            <option value="radial">Radial</option>
             <option value="solid">Solid</option>
           </select>
         </Row>
@@ -203,16 +287,18 @@ function ScenePanel() {
                 onChange={(e) => setBg({ ...bg, to: e.target.value })}
               />
             </Row>
-            <Row label="Angle">
-              <Slider
-                value={bg.angle}
-                min={0}
-                max={360}
-                step={1}
-                suffix="°"
-                onChange={(v) => setBg({ ...bg, angle: v })}
-              />
-            </Row>
+            {bg.kind === "linear" && (
+              <Row label="Angle">
+                <Slider
+                  value={bg.angle}
+                  min={0}
+                  max={360}
+                  step={1}
+                  suffix="°"
+                  onChange={(v) => setBg({ ...bg, angle: v })}
+                />
+              </Row>
+            )}
           </>
         )}
       </div>
@@ -271,11 +357,21 @@ function ScenePanel() {
 
 export default function Inspector() {
   const selectedId = useStore((s) => s.selectedId);
-  const exists = useStore((s) => s.doc.blocks.some((b) => b.id === selectedId));
+  const blockExists = useStore((s) => s.doc.blocks.some((b) => b.id === selectedId));
+  const selectedSegmentId = useStore((s) => s.selectedSegmentId);
+  const segmentExists = useStore((s) =>
+    s.doc.segments.some((x) => x.id === selectedSegmentId),
+  );
 
   return (
     <aside className="panel inspector">
-      {selectedId && exists ? <ZoomPanel id={selectedId} /> : <ScenePanel />}
+      {selectedId && blockExists ? (
+        <ZoomPanel id={selectedId} />
+      ) : selectedSegmentId && segmentExists ? (
+        <SegmentPanel id={selectedSegmentId} />
+      ) : (
+        <ScenePanel />
+      )}
     </aside>
   );
 }

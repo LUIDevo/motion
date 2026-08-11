@@ -24,10 +24,17 @@ export default function App() {
       } else if (e.key === "ArrowRight") {
         st.setPlaying(false);
         st.setPlayhead(st.playhead + (e.shiftKey ? 1 : 1 / 30));
-      } else if ((e.key === "Delete" || e.key === "Backspace") && st.selectedId) {
-        st.removeBlock(st.selectedId);
+      } else if (e.key === "s" || e.key === "S") {
+        if (st.doc.clip) {
+          st.setPlaying(false);
+          st.splitAt(st.playhead);
+        }
+      } else if (e.key === "Delete" || e.key === "Backspace") {
+        if (st.selectedId) st.removeBlock(st.selectedId);
+        else if (st.selectedSegmentId) st.removeSegment(st.selectedSegmentId);
       } else if (e.key === "Escape") {
         st.select(null);
+        st.selectSegment(null);
       }
     };
     window.addEventListener("keydown", onKey);

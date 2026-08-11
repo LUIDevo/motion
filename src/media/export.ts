@@ -1,5 +1,6 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import type { Doc } from "../doc/types";
+import { docDuration, sourceAt } from "../doc/time";
 import { renderFrame } from "../render/renderer";
 
 export interface ExportOptions {
@@ -48,7 +49,7 @@ export async function exportVideo(
   if (!doc.clip) throw new Error("Nothing to export.");
 
   const { fps, quality } = opts;
-  const total = Math.max(1, Math.floor(doc.clip.duration * fps));
+  const total = Math.max(1, Math.floor(docDuration(doc) * fps));
 
   const canvas = document.createElement("canvas");
   canvas.width = doc.output.width;
@@ -72,7 +73,10 @@ export async function exportVideo(
     for (let i = 0; i < total; i++) {
       if (opts.signal?.cancelled) throw new Error("Export cancelled.");
       const t = i / fps;
-      await seek(v, Math.min(t, doc.clip.duration - 1e-3));
+      // Cuts and speed live in the timeline mapping, so the export steps the
+      // source exactly where the preview would have it.
+      const hit = sourceAt(doc, t);
+      if (hit) await seek(v, Math.min(hit.srcTime, doc.clip.duration - 1e-3));
       renderFrame(ctx, doc, t, v);
       const data = stripDataUrl(canvas.toDataURL("image/jpeg", 0.95));
       await invoke("export_frame", { dir, index: i, data });

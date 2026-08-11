@@ -1,5 +1,7 @@
 import { useEffect, useRef } from "react";
-import { docDuration, useStore } from "../doc/store";
+import { useStore } from "../doc/store";
+import { docDuration, sourceAt } from "../doc/time";
+import type { Doc } from "../doc/types";
 import { cameraAt, REST } from "../render/camera";
 import { canvasToVideo, layout, renderFrame } from "../render/renderer";
 import { fmtTime } from "./format";
@@ -10,7 +12,7 @@ import { fmtTime } from "./format";
  */
 function drawTarget(
   ctx: CanvasRenderingContext2D,
-  doc: ReturnType<typeof useStore.getState>["doc"],
+  doc: Doc,
   time: number,
   target: { x: number; y: number },
 ) {
@@ -36,22 +38,28 @@ function drawTarget(
   ctx.restore();
 }
 
+/** How far the source may drift from where the timeline says it should be
+ *  before we correct it with a seek. Small enough to stay in sync, large
+ *  enough that we aren't seeking every frame during normal playback. */
+const DRIFT_TOLERANCE = 0.2;
+
 export default function Stage() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  /** Wall-clock anchor for playback, so cuts and speed changes advance the
+   *  playhead at the right rate regardless of what the source is doing. */
+  const tickRef = useRef<number>(0);
 
   const clip = useStore((s) => s.doc.clip);
   const output = useStore((s) => s.doc.output);
   const playing = useStore((s) => s.playing);
   const playhead = useStore((s) => s.playhead);
+  const duration = useStore((s) => docDuration(s.doc));
   const setPlaying = useStore((s) => s.setPlaying);
   const setPlayhead = useStore((s) => s.setPlayhead);
   const addZoom = useStore((s) => s.addZoom);
   const updateBlock = useStore((s) => s.updateBlock);
 
-  const duration = clip?.duration ?? 0;
-
-  // Load the source whenever the clip changes.
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
@@ -67,6 +75,7 @@ export default function Stage() {
   useEffect(() => {
     const v = videoRef.current;
     if (!v || !clip) return;
+    tickRef.current = performance.now();
     if (playing) void v.play().catch(() => setPlaying(false));
     else v.pause();
   }, [playing, clip, setPlaying]);
@@ -77,12 +86,14 @@ export default function Stage() {
   useEffect(() => {
     const v = videoRef.current;
     if (!v || playing) return;
-    if (Math.abs(v.currentTime - playhead) > 0.02) v.currentTime = playhead;
+    const hit = sourceAt(useStore.getState().doc, playhead);
+    if (!hit) return;
+    if (Math.abs(v.currentTime - hit.srcTime) > 0.02) v.currentTime = hit.srcTime;
   }, [playhead, playing]);
 
   useEffect(() => {
     let raf = 0;
-    const loop = () => {
+    const loop = (now: number) => {
       raf = requestAnimationFrame(loop);
       const canvas = canvasRef.current;
       const ctx = canvas?.getContext("2d");
@@ -90,15 +101,37 @@ export default function Stage() {
 
       const st = useStore.getState();
       const v = videoRef.current;
+      const dur = docDuration(st.doc);
 
       let t = st.playhead;
+
       if (st.playing && v) {
-        t = v.currentTime;
-        if (v.ended || t >= docDuration(st.doc)) {
+        // Advance on wall clock rather than on video.currentTime: across a cut
+        // the source jumps backwards, and speed segments make it run at a
+        // different rate than the timeline.
+        const dt = Math.min(0.25, (now - tickRef.current) / 1000);
+        tickRef.current = now;
+        t = st.playhead + dt;
+
+        if (t >= dur) {
+          t = dur;
           st.setPlaying(false);
-          t = docDuration(st.doc);
         }
         st.setPlayhead(t);
+
+        const hit = sourceAt(st.doc, t);
+        if (hit) {
+          if (v.playbackRate !== hit.segment.speed) {
+            v.playbackRate = hit.segment.speed;
+          }
+          // Let the element play on its own, correcting only when it drifts —
+          // seeking every frame stutters badly in WebKit.
+          if (Math.abs(v.currentTime - hit.srcTime) > DRIFT_TOLERANCE) {
+            v.currentTime = hit.srcTime;
+          }
+        }
+      } else {
+        tickRef.current = now;
       }
 
       const ready = v && v.readyState >= 2 ? v : null;

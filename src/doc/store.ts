@@ -1,10 +1,14 @@
 import { create } from "zustand";
-import type { Block, Clip, Doc, ZoomBlock } from "./types";
+import type { Block, Clip, Doc, Segment, ZoomBlock } from "./types";
+import { docDuration, segmentLength, segmentOffset, sourceAt } from "./time";
+
+export { docDuration } from "./time";
 
 export const emptyDoc = (): Doc => ({
   version: 1,
   output: { width: 1920, height: 1080 },
   clip: null,
+  segments: [],
   background: { kind: "linear", from: "#EDEDED", to: "#DCDCDC", angle: 120 },
   frame: {
     padding: 0.07,
@@ -18,8 +22,38 @@ export const emptyDoc = (): Doc => ({
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
-/** Timeline length. Zero until something is imported. */
-export const docDuration = (doc: Doc) => doc.clip?.duration ?? 0;
+const MIN_SEGMENT = 0.2;
+
+/**
+ * Editing the video track changes where every later moment sits on the
+ * timeline. Zoom blocks are stored in timeline time, so without this they'd
+ * silently slide off the thing they were aimed at whenever you trimmed.
+ * Blocks that started inside the edited region are dropped rather than
+ * stretched, since there's no honest place to put them.
+ */
+function shiftBlocks(blocks: Block[], from: number, delta: number): Block[] {
+  if (delta === 0) return blocks;
+
+  const moved = blocks
+    .map((b) =>
+      b.start >= from ? { ...b, start: b.start + delta, end: b.end + delta } : b,
+    )
+    .filter((b) => b.start >= 0 && b.end > b.start)
+    .sort((a, b) => a.start - b.start);
+
+  // Shifting can push a block back onto its neighbour. Overlapping blocks
+  // would break the "one active block" assumption in the camera solve, so the
+  // collided one is dropped instead of being left to fight.
+  const kept: Block[] = [];
+  let lastEnd = -Infinity;
+  for (const b of moved) {
+    if (b.start >= lastEnd) {
+      kept.push(b);
+      lastEnd = b.end;
+    }
+  }
+  return kept;
+}
 
 /**
  * Blocks must not overlap — the camera solve assumes at most one is active at
@@ -44,16 +78,23 @@ interface State {
   playhead: number;
   playing: boolean;
   selectedId: string | null;
+  selectedSegmentId: string | null;
 
   loadClip: (clip: Clip) => void;
   setPlayhead: (t: number) => void;
   setPlaying: (p: boolean) => void;
   select: (id: string | null) => void;
+  selectSegment: (id: string | null) => void;
 
   addZoom: (at: number, target: { x: number; y: number }) => string | null;
   updateBlock: (id: string, patch: Partial<ZoomBlock>) => void;
   moveBlock: (id: string, start: number, end: number) => void;
   removeBlock: (id: string) => void;
+
+  splitAt: (t: number) => void;
+  trimSegment: (id: string, srcStart: number, srcEnd: number) => void;
+  setSegmentSpeed: (id: string, speed: number) => void;
+  removeSegment: (id: string) => void;
 
   patchDoc: (patch: Partial<Doc>) => void;
 }
@@ -63,6 +104,7 @@ export const useStore = create<State>((set, get) => ({
   playhead: 0,
   playing: false,
   selectedId: null,
+  selectedSegmentId: null,
 
   loadClip: (clip) =>
     set((s) => ({
@@ -72,18 +114,23 @@ export const useStore = create<State>((set, get) => ({
         ...s.doc,
         clip,
         output: { width: clip.width, height: clip.height },
+        segments: [
+          { id: uid(), srcStart: 0, srcEnd: clip.duration, speed: 1 },
+        ],
         blocks: [],
       },
       playhead: 0,
       playing: false,
       selectedId: null,
+      selectedSegmentId: null,
     })),
 
   setPlayhead: (t) =>
     set((s) => ({ playhead: Math.max(0, Math.min(docDuration(s.doc), t)) })),
 
   setPlaying: (p) => set({ playing: p }),
-  select: (id) => set({ selectedId: id }),
+  select: (id) => set({ selectedId: id, selectedSegmentId: null }),
+  selectSegment: (id) => set({ selectedSegmentId: id, selectedId: null }),
 
   addZoom: (at, target) => {
     const { doc } = get();
@@ -116,6 +163,7 @@ export const useStore = create<State>((set, get) => ({
         blocks: [...s.doc.blocks, block].sort((a, b) => a.start - b.start),
       },
       selectedId: block.id,
+      selectedSegmentId: null,
     }));
     return block.id;
   },
@@ -172,6 +220,89 @@ export const useStore = create<State>((set, get) => ({
       doc: { ...s.doc, blocks: s.doc.blocks.filter((b) => b.id !== id) },
       selectedId: s.selectedId === id ? null : s.selectedId,
     })),
+
+  /** Cut the segment under the playhead in two. Total length is unchanged, so
+   *  zoom blocks stay exactly where they were. */
+  splitAt: (t) =>
+    set((s) => {
+      const hit = sourceAt(s.doc, t);
+      if (!hit) return s;
+
+      const { segment, index } = hit;
+      const left: Segment = { ...segment, srcEnd: hit.srcTime };
+      const right: Segment = { ...segment, id: uid(), srcStart: hit.srcTime };
+      if (segmentLength(left) < MIN_SEGMENT || segmentLength(right) < MIN_SEGMENT) {
+        return s;
+      }
+
+      const segments = [...s.doc.segments];
+      segments.splice(index, 1, left, right);
+      return { doc: { ...s.doc, segments }, selectedSegmentId: right.id };
+    }),
+
+  trimSegment: (id, srcStart, srcEnd) =>
+    set((s) => {
+      const index = s.doc.segments.findIndex((x) => x.id === id);
+      if (index < 0 || !s.doc.clip) return s;
+      const seg = s.doc.segments[index];
+
+      const lo = Math.max(0, Math.min(srcStart, srcEnd - MIN_SEGMENT * seg.speed));
+      const hi = Math.min(
+        s.doc.clip.duration,
+        Math.max(srcEnd, lo + MIN_SEGMENT * seg.speed),
+      );
+
+      const next: Segment = { ...seg, srcStart: lo, srcEnd: hi };
+      const delta = segmentLength(next) - segmentLength(seg);
+      const after = segmentOffset(s.doc, index) + segmentLength(seg);
+
+      const segments = [...s.doc.segments];
+      segments[index] = next;
+      return {
+        doc: { ...s.doc, segments, blocks: shiftBlocks(s.doc.blocks, after, delta) },
+      };
+    }),
+
+  setSegmentSpeed: (id, speed) =>
+    set((s) => {
+      const index = s.doc.segments.findIndex((x) => x.id === id);
+      if (index < 0) return s;
+      const seg = s.doc.segments[index];
+      const next: Segment = { ...seg, speed: Math.max(0.25, Math.min(8, speed)) };
+
+      const delta = segmentLength(next) - segmentLength(seg);
+      const after = segmentOffset(s.doc, index) + segmentLength(seg);
+
+      const segments = [...s.doc.segments];
+      segments[index] = next;
+      return {
+        doc: { ...s.doc, segments, blocks: shiftBlocks(s.doc.blocks, after, delta) },
+      };
+    }),
+
+  removeSegment: (id) =>
+    set((s) => {
+      if (s.doc.segments.length <= 1) return s; // never leave an empty timeline
+      const index = s.doc.segments.findIndex((x) => x.id === id);
+      if (index < 0) return s;
+
+      const seg = s.doc.segments[index];
+      const at = segmentOffset(s.doc, index);
+      const len = segmentLength(seg);
+
+      const segments = s.doc.segments.filter((x) => x.id !== id);
+      const blocks = shiftBlocks(
+        s.doc.blocks.filter((b) => b.end <= at || b.start >= at + len),
+        at + len,
+        -len,
+      );
+
+      return {
+        doc: { ...s.doc, segments, blocks },
+        selectedSegmentId: null,
+        playhead: Math.min(s.playhead, at),
+      };
+    }),
 
   patchDoc: (patch) => set((s) => ({ doc: { ...s.doc, ...patch } })),
 }));

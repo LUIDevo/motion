@@ -66,6 +66,18 @@ function paintBackground(
 ) {
   if (bg.kind === "solid") {
     ctx.fillStyle = bg.color;
+  } else if (bg.kind === "radial") {
+    const g = ctx.createRadialGradient(
+      w / 2,
+      h / 2,
+      0,
+      w / 2,
+      h / 2,
+      Math.hypot(w, h) / 2,
+    );
+    g.addColorStop(0, bg.from);
+    g.addColorStop(1, bg.to);
+    ctx.fillStyle = g;
   } else {
     const rad = (bg.angle * Math.PI) / 180;
     const cx = w / 2;

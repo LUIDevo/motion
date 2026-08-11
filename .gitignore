@@ -1,1 +1,8 @@
 node_modules/
+dist/
+
+# Rust build output
+src-tauri/target/
+
+# Tauri generates these from tauri.conf.json + capabilities on every build
+src-tauri/gen/schemas/
