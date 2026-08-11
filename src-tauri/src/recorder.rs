@@ -1,29 +1,21 @@
 //! Screen capture on Wayland.
 //!
-//! Wayland deliberately hides the global cursor position from applications, so
-//! there is no polling API to fall back on. The only supported route to real
-//! cursor coordinates is the xdg-desktop-portal ScreenCast interface asked to
-//! deliver the cursor as *metadata* rather than painted into the frames. That
-//! choice is what makes follow-cursor zoom possible, and it's also why we have
-//! to consume the PipeWire stream ourselves instead of handing the node to
-//! ffmpeg and walking away.
+//! Wayland hides the global cursor position from applications, and the portal
+//! only offers it in `CursorMode::Metadata` — which
+//! xdg-desktop-portal-hyprland does not implement (it advertises
+//! `Hidden | Embedded`). So this module does one job: get the compositor to
+//! hand over a PipeWire node to capture. Cursor coordinates come from
+//! Hyprland's IPC socket instead, in the `cursor` module.
 //!
-//! Note on clicks: the portal reports where the cursor is, never what its
-//! buttons are doing. Click-triggered effects need a different source and are
-//! not available from this path.
+//! Because the cursor no longer has to be pulled out of the stream's metadata,
+//! the frames themselves never need to be inspected here — GStreamer consumes
+//! the node directly.
+//!
+//! Note on clicks: neither source reports mouse buttons. Click-triggered
+//! effects need something else again and are not available from this path.
 
 use serde::{Deserialize, Serialize};
 use std::os::fd::{IntoRawFd, OwnedFd};
-
-/// One cursor position, timestamped from the start of the recording.
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub struct CursorSample {
-    /// Seconds since recording start.
-    pub t: f64,
-    /// Position in captured-frame pixels.
-    pub x: f32,
-    pub y: f32,
-}
 
 /// What a finished recording produces: the video plus the cursor track that
 /// makes it more than a screen capture.
@@ -60,14 +52,16 @@ pub async fn negotiate() -> Result<CaptureSource, String> {
         .await
         .map_err(|e| format!("could not open a capture session: {e}"))?;
 
-    // Metadata is the whole point: it keeps the cursor out of the pixels and
-    // delivers its position alongside each frame. Compositors that don't
-    // support it will reject this call rather than silently downgrade.
+    // `Metadata` would deliver cursor position alongside the frames, but
+    // xdg-desktop-portal-hyprland advertises only `Hidden | Embedded` and
+    // rejects the request outright rather than downgrading. So the cursor is
+    // painted into the capture here, and its coordinates come separately from
+    // Hyprland's IPC socket — see the `cursor` module.
     proxy
         .select_sources(
             &session,
-            CursorMode::Metadata,
-            SourceType::Monitor | SourceType::Window,
+            CursorMode::Embedded,
+            SourceType::Monitor.into(),
             false,
             None,
             PersistMode::DoNot,

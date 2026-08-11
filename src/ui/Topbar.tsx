@@ -57,6 +57,25 @@ export default function Topbar() {
     }
   };
 
+  // Verifies the cursor half of the recorder on its own: samples Hyprland's
+  // IPC for three seconds and reports what it saw.
+  const onCursorProbe = async () => {
+    if (!isTauri()) return;
+    setStatus({ kind: "busy", label: "Move your mouse for 3s", pct: 0 });
+    try {
+      const r = await invoke<{ samples: number; movedPx: number; monitor: string }>(
+        "cursor_probe",
+        { ms: 3000 },
+      );
+      setStatus({
+        kind: "done",
+        label: `${r.samples} samples on ${r.monitor}, moved ${r.movedPx}px`,
+      });
+    } catch (err) {
+      setStatus({ kind: "error", label: String(err) });
+    }
+  };
+
   const onExport = async () => {
     const doc = useStore.getState().doc;
     if (!doc.clip) return;
@@ -130,6 +149,9 @@ export default function Topbar() {
           ↷
         </button>
 
+        <button className="ghost" onClick={onCursorProbe} title="Test cursor tracking">
+          Cursor
+        </button>
         <button className="ghost" onClick={onProbe} title="Test the screen-capture portal">
           ● Record
         </button>
