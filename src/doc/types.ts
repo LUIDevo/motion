@@ -85,9 +85,12 @@ export interface Clip {
   /** Source URL the <video> element loads (asset:// under Tauri, blob: in the
    *  browser fallback). Not persisted — resolved from `path` on open. */
   src: string;
-  /** Absolute path on disk, when we have one. */
+  /** Absolute path of the original file on disk, when we have one. */
   path: string | null;
   name: string;
+  /** True when `src` points at a transcoded proxy rather than the original,
+   *  because the webview couldn't decode the source codec. */
+  proxied: boolean;
   duration: number;
   width: number;
   height: number;

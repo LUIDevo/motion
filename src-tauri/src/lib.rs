@@ -1,4 +1,5 @@
 mod export;
+mod proxy;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -10,6 +11,7 @@ pub fn run() {
             export::export_finish,
             export::export_cleanup,
             export::ffmpeg_available,
+            proxy::make_proxy,
         ])
         .run(tauri::generate_context!())
         .expect("error while running motion");

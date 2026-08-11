@@ -15,6 +15,19 @@ export default function App() {
       if (el && /^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) return;
 
       const st = useStore.getState();
+
+      if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.key === "Z")) {
+        e.preventDefault();
+        if (e.shiftKey) st.redo();
+        else st.undo();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === "y" || e.key === "Y")) {
+        e.preventDefault();
+        st.redo();
+        return;
+      }
+
       if (e.code === "Space") {
         e.preventDefault();
         if (st.doc.clip) st.setPlaying(!st.playing);

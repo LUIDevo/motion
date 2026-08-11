@@ -21,6 +21,15 @@ serde_json = "1"
 base64 = "0.22"
 uuid = { version = "1", features = ["v4"] }
 
+# Screen capture on Wayland. The compositor never exposes the global cursor
+# position to applications, so the only way to get real cursor coordinates is
+# the ScreenCast portal with its cursor delivered as stream metadata, which
+# means consuming the PipeWire stream ourselves.
+[target.'cfg(target_os = "linux")'.dependencies]
+ashpd = { version = "0.11", default-features = false, features = ["tokio"] }
+pipewire = "0.8"
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "time"] }
+
 [profile.release]
 codegen-units = 1
 lto = true

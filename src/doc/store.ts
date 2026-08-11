@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { Block, Clip, Doc, Segment, ZoomBlock } from "./types";
 import { docDuration, segmentLength, segmentOffset, sourceAt } from "./time";
+import { emptyHistory, push, type History } from "./history";
 
 export { docDuration } from "./time";
 
@@ -28,8 +29,6 @@ const MIN_SEGMENT = 0.2;
  * Editing the video track changes where every later moment sits on the
  * timeline. Zoom blocks are stored in timeline time, so without this they'd
  * silently slide off the thing they were aimed at whenever you trimmed.
- * Blocks that started inside the edited region are dropped rather than
- * stretched, since there's no honest place to put them.
  */
 function shiftBlocks(blocks: Block[], from: number, delta: number): Block[] {
   if (delta === 0) return blocks;
@@ -75,6 +74,7 @@ function freeSpan(doc: Doc, at: number): { start: number; end: number } | null {
 
 interface State {
   doc: Doc;
+  hist: History;
   playhead: number;
   playing: boolean;
   selectedId: string | null;
@@ -97,108 +97,133 @@ interface State {
   removeSegment: (id: string) => void;
 
   patchDoc: (patch: Partial<Doc>) => void;
+
+  undo: () => void;
+  redo: () => void;
 }
 
-export const useStore = create<State>((set, get) => ({
-  doc: emptyDoc(),
-  playhead: 0,
-  playing: false,
-  selectedId: null,
-  selectedSegmentId: null,
+export const useStore = create<State>((set, get) => {
+  /**
+   * Every document mutation goes through here so history is recorded in one
+   * place — an action that edited `doc` directly would silently become
+   * un-undoable.
+   *
+   * `label` identifies the gesture for coalescing; return null to abort with
+   * no history entry.
+   */
+  const commit = (label: string, next: (doc: Doc) => Doc | null) => {
+    const s = get();
+    const nd = next(s.doc);
+    if (!nd || nd === s.doc) return;
+    set({ doc: nd, hist: push(s.hist, s.doc, label) });
+  };
 
-  loadClip: (clip) =>
-    set((s) => ({
-      // Match the output to the source so a 16:10 laptop capture isn't
-      // pillarboxed into a 16:9 canvas by default.
-      doc: {
-        ...s.doc,
-        clip,
-        output: { width: clip.width, height: clip.height },
-        segments: [
-          { id: uid(), srcStart: 0, srcEnd: clip.duration, speed: 1 },
-        ],
-        blocks: [],
-      },
-      playhead: 0,
-      playing: false,
-      selectedId: null,
-      selectedSegmentId: null,
-    })),
-
-  setPlayhead: (t) =>
-    set((s) => ({ playhead: Math.max(0, Math.min(docDuration(s.doc), t)) })),
-
-  setPlaying: (p) => set({ playing: p }),
-  select: (id) => set({ selectedId: id, selectedSegmentId: null }),
-  selectSegment: (id) => set({ selectedSegmentId: id, selectedId: null }),
-
-  addZoom: (at, target) => {
-    const { doc } = get();
-    const span = freeSpan(doc, at);
-    if (!span) return null;
-
-    // Aim for a comfortable 2.4s move but shrink to whatever room exists.
-    const want = 2.4;
-    const end = Math.min(span.end, at + want);
-    const start = Math.max(span.start, Math.min(at, end - 0.6));
-    const len = end - start;
-    const ramp = Math.min(0.7, len * 0.35);
-
-    const block: ZoomBlock = {
-      id: uid(),
-      kind: "zoom",
-      start,
-      end,
-      rampIn: ramp,
-      rampOut: ramp,
-      scale: 2,
-      target,
-      ease: "spring",
-      followCursor: false,
+  /** After a history jump the selection or playhead may point at something
+   *  that no longer exists in the restored document. */
+  const reconcile = (doc: Doc) => {
+    const s = get();
+    return {
+      playhead: Math.max(0, Math.min(docDuration(doc), s.playhead)),
+      selectedId: doc.blocks.some((b) => b.id === s.selectedId) ? s.selectedId : null,
+      selectedSegmentId: doc.segments.some((x) => x.id === s.selectedSegmentId)
+        ? s.selectedSegmentId
+        : null,
     };
+  };
 
-    set((s) => ({
-      doc: {
-        ...s.doc,
-        blocks: [...s.doc.blocks, block].sort((a, b) => a.start - b.start),
-      },
-      selectedId: block.id,
-      selectedSegmentId: null,
-    }));
-    return block.id;
-  },
+  return {
+    doc: emptyDoc(),
+    hist: emptyHistory(),
+    playhead: 0,
+    playing: false,
+    selectedId: null,
+    selectedSegmentId: null,
 
-  updateBlock: (id, patch) =>
-    set((s) => ({
-      doc: {
-        ...s.doc,
-        blocks: s.doc.blocks.map((b) =>
-          b.id === id ? ({ ...b, ...patch } as Block) : b,
-        ),
-      },
-    })),
-
-  moveBlock: (id, start, end) =>
-    set((s) => {
-      const dur = docDuration(s.doc);
-      const others = s.doc.blocks.filter((b) => b.id !== id);
-
-      // Clamp against neighbours so dragging can crowd a block but never
-      // push it through one.
-      let lo = 0;
-      let hi = dur;
-      for (const b of others) {
-        if (b.end <= start && b.end > lo) lo = b.end;
-        if (b.start >= end && b.start < hi) hi = b.start;
-      }
-      const s2 = Math.max(lo, start);
-      const e2 = Math.min(hi, end);
-      if (e2 - s2 < 0.3) return s;
-
-      return {
+    loadClip: (clip) =>
+      set((s) => ({
+        // Match the output to the source so a 16:10 laptop capture isn't
+        // pillarboxed into a 16:9 canvas by default.
         doc: {
           ...s.doc,
-          blocks: s.doc.blocks
+          clip,
+          output: { width: clip.width, height: clip.height },
+          segments: [{ id: uid(), srcStart: 0, srcEnd: clip.duration, speed: 1 }],
+          blocks: [],
+        },
+        // Importing starts a new piece of work; undoing back into the previous
+        // recording's edits would be meaningless.
+        hist: emptyHistory(),
+        playhead: 0,
+        playing: false,
+        selectedId: null,
+        selectedSegmentId: null,
+      })),
+
+    setPlayhead: (t) =>
+      set((s) => ({ playhead: Math.max(0, Math.min(docDuration(s.doc), t)) })),
+
+    setPlaying: (p) => set({ playing: p }),
+    select: (id) => set({ selectedId: id, selectedSegmentId: null }),
+    selectSegment: (id) => set({ selectedSegmentId: id, selectedId: null }),
+
+    addZoom: (at, target) => {
+      const doc = get().doc;
+      const span = freeSpan(doc, at);
+      if (!span) return null;
+
+      // Aim for a comfortable 2.4s move but shrink to whatever room exists.
+      const end = Math.min(span.end, at + 2.4);
+      const start = Math.max(span.start, Math.min(at, end - 0.6));
+      const len = end - start;
+      const ramp = Math.min(0.7, len * 0.35);
+
+      const block: ZoomBlock = {
+        id: uid(),
+        kind: "zoom",
+        start,
+        end,
+        rampIn: ramp,
+        rampOut: ramp,
+        scale: 2,
+        target,
+        ease: "spring",
+        followCursor: false,
+      };
+
+      commit("addZoom", (d) => ({
+        ...d,
+        blocks: [...d.blocks, block].sort((a, b) => a.start - b.start),
+      }));
+      set({ selectedId: block.id, selectedSegmentId: null });
+      return block.id;
+    },
+
+    updateBlock: (id, patch) =>
+      commit(`updateBlock:${id}:${Object.keys(patch).join(",")}`, (d) => ({
+        ...d,
+        blocks: d.blocks.map((b) => (b.id === id ? ({ ...b, ...patch } as Block) : b)),
+      })),
+
+    moveBlock: (id, start, end) =>
+      commit(`moveBlock:${id}`, (d) => {
+        const dur = docDuration(d);
+        const others = d.blocks.filter((b) => b.id !== id);
+
+        // Clamp against neighbours so dragging can crowd a block but never
+        // push it through one.
+        let lo = 0;
+        let hi = dur;
+        for (const b of others) {
+          if (b.end <= start && b.end > lo) lo = b.end;
+          if (b.start >= end && b.start < hi) hi = b.start;
+        }
+        const s2 = Math.max(lo, start);
+        const e2 = Math.min(hi, end);
+        if (e2 - s2 < 0.3) return null;
+
+        return {
+          ...d,
+          blocks: d.blocks
             .map((b) => {
               if (b.id !== id) return b;
               const len = e2 - s2;
@@ -211,98 +236,134 @@ export const useStore = create<State>((set, get) => ({
               };
             })
             .sort((a, b) => a.start - b.start),
+        };
+      }),
+
+    removeBlock: (id) => {
+      commit("removeBlock", (d) => ({
+        ...d,
+        blocks: d.blocks.filter((b) => b.id !== id),
+      }));
+      if (get().selectedId === id) set({ selectedId: null });
+    },
+
+    /** Cut the segment under the playhead in two. Total length is unchanged,
+     *  so zoom blocks stay exactly where they were. */
+    splitAt: (t) => {
+      let newId: string | null = null;
+      commit("splitAt", (d) => {
+        const hit = sourceAt(d, t);
+        if (!hit) return null;
+
+        const { segment, index } = hit;
+        const left: Segment = { ...segment, srcEnd: hit.srcTime };
+        const right: Segment = { ...segment, id: uid(), srcStart: hit.srcTime };
+        if (segmentLength(left) < MIN_SEGMENT || segmentLength(right) < MIN_SEGMENT) {
+          return null;
+        }
+
+        const segments = [...d.segments];
+        segments.splice(index, 1, left, right);
+        newId = right.id;
+        return { ...d, segments };
+      });
+      if (newId) set({ selectedSegmentId: newId, selectedId: null });
+    },
+
+    trimSegment: (id, srcStart, srcEnd) =>
+      commit(`trimSegment:${id}`, (d) => {
+        const index = d.segments.findIndex((x) => x.id === id);
+        if (index < 0 || !d.clip) return null;
+        const seg = d.segments[index];
+
+        const lo = Math.max(0, Math.min(srcStart, srcEnd - MIN_SEGMENT * seg.speed));
+        const hi = Math.min(
+          d.clip.duration,
+          Math.max(srcEnd, lo + MIN_SEGMENT * seg.speed),
+        );
+
+        const next: Segment = { ...seg, srcStart: lo, srcEnd: hi };
+        const delta = segmentLength(next) - segmentLength(seg);
+        const after = segmentOffset(d, index) + segmentLength(seg);
+
+        const segments = [...d.segments];
+        segments[index] = next;
+        return { ...d, segments, blocks: shiftBlocks(d.blocks, after, delta) };
+      }),
+
+    setSegmentSpeed: (id, speed) =>
+      commit(`setSegmentSpeed:${id}`, (d) => {
+        const index = d.segments.findIndex((x) => x.id === id);
+        if (index < 0) return null;
+        const seg = d.segments[index];
+        const next: Segment = { ...seg, speed: Math.max(0.25, Math.min(8, speed)) };
+
+        const delta = segmentLength(next) - segmentLength(seg);
+        const after = segmentOffset(d, index) + segmentLength(seg);
+
+        const segments = [...d.segments];
+        segments[index] = next;
+        return { ...d, segments, blocks: shiftBlocks(d.blocks, after, delta) };
+      }),
+
+    removeSegment: (id) => {
+      commit("removeSegment", (d) => {
+        if (d.segments.length <= 1) return null; // never leave an empty timeline
+        const index = d.segments.findIndex((x) => x.id === id);
+        if (index < 0) return null;
+
+        const seg = d.segments[index];
+        const at = segmentOffset(d, index);
+        const len = segmentLength(seg);
+
+        return {
+          ...d,
+          segments: d.segments.filter((x) => x.id !== id),
+          blocks: shiftBlocks(
+            d.blocks.filter((b) => b.end <= at || b.start >= at + len),
+            at + len,
+            -len,
+          ),
+        };
+      });
+      set(reconcile(get().doc));
+    },
+
+    patchDoc: (patch) =>
+      commit(`patchDoc:${Object.keys(patch).join(",")}`, (d) => ({ ...d, ...patch })),
+
+    undo: () => {
+      const s = get();
+      const previous = s.hist.past.at(-1);
+      if (!previous) return;
+      set({
+        doc: previous,
+        hist: {
+          past: s.hist.past.slice(0, -1),
+          future: [s.doc, ...s.hist.future],
+          lastLabel: null,
+          lastAt: 0,
         },
-      };
-    }),
+        playing: false,
+        ...reconcile(previous),
+      });
+    },
 
-  removeBlock: (id) =>
-    set((s) => ({
-      doc: { ...s.doc, blocks: s.doc.blocks.filter((b) => b.id !== id) },
-      selectedId: s.selectedId === id ? null : s.selectedId,
-    })),
-
-  /** Cut the segment under the playhead in two. Total length is unchanged, so
-   *  zoom blocks stay exactly where they were. */
-  splitAt: (t) =>
-    set((s) => {
-      const hit = sourceAt(s.doc, t);
-      if (!hit) return s;
-
-      const { segment, index } = hit;
-      const left: Segment = { ...segment, srcEnd: hit.srcTime };
-      const right: Segment = { ...segment, id: uid(), srcStart: hit.srcTime };
-      if (segmentLength(left) < MIN_SEGMENT || segmentLength(right) < MIN_SEGMENT) {
-        return s;
-      }
-
-      const segments = [...s.doc.segments];
-      segments.splice(index, 1, left, right);
-      return { doc: { ...s.doc, segments }, selectedSegmentId: right.id };
-    }),
-
-  trimSegment: (id, srcStart, srcEnd) =>
-    set((s) => {
-      const index = s.doc.segments.findIndex((x) => x.id === id);
-      if (index < 0 || !s.doc.clip) return s;
-      const seg = s.doc.segments[index];
-
-      const lo = Math.max(0, Math.min(srcStart, srcEnd - MIN_SEGMENT * seg.speed));
-      const hi = Math.min(
-        s.doc.clip.duration,
-        Math.max(srcEnd, lo + MIN_SEGMENT * seg.speed),
-      );
-
-      const next: Segment = { ...seg, srcStart: lo, srcEnd: hi };
-      const delta = segmentLength(next) - segmentLength(seg);
-      const after = segmentOffset(s.doc, index) + segmentLength(seg);
-
-      const segments = [...s.doc.segments];
-      segments[index] = next;
-      return {
-        doc: { ...s.doc, segments, blocks: shiftBlocks(s.doc.blocks, after, delta) },
-      };
-    }),
-
-  setSegmentSpeed: (id, speed) =>
-    set((s) => {
-      const index = s.doc.segments.findIndex((x) => x.id === id);
-      if (index < 0) return s;
-      const seg = s.doc.segments[index];
-      const next: Segment = { ...seg, speed: Math.max(0.25, Math.min(8, speed)) };
-
-      const delta = segmentLength(next) - segmentLength(seg);
-      const after = segmentOffset(s.doc, index) + segmentLength(seg);
-
-      const segments = [...s.doc.segments];
-      segments[index] = next;
-      return {
-        doc: { ...s.doc, segments, blocks: shiftBlocks(s.doc.blocks, after, delta) },
-      };
-    }),
-
-  removeSegment: (id) =>
-    set((s) => {
-      if (s.doc.segments.length <= 1) return s; // never leave an empty timeline
-      const index = s.doc.segments.findIndex((x) => x.id === id);
-      if (index < 0) return s;
-
-      const seg = s.doc.segments[index];
-      const at = segmentOffset(s.doc, index);
-      const len = segmentLength(seg);
-
-      const segments = s.doc.segments.filter((x) => x.id !== id);
-      const blocks = shiftBlocks(
-        s.doc.blocks.filter((b) => b.end <= at || b.start >= at + len),
-        at + len,
-        -len,
-      );
-
-      return {
-        doc: { ...s.doc, segments, blocks },
-        selectedSegmentId: null,
-        playhead: Math.min(s.playhead, at),
-      };
-    }),
-
-  patchDoc: (patch) => set((s) => ({ doc: { ...s.doc, ...patch } })),
-}));
+    redo: () => {
+      const s = get();
+      const next = s.hist.future[0];
+      if (!next) return;
+      set({
+        doc: next,
+        hist: {
+          past: [...s.hist.past, s.doc],
+          future: s.hist.future.slice(1),
+          lastLabel: null,
+          lastAt: 0,
+        },
+        playing: false,
+        ...reconcile(next),
+      });
+    },
+  };
+});

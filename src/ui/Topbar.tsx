@@ -14,17 +14,30 @@ export default function Topbar() {
   const clip = useStore((s) => s.doc.clip);
   const loadClip = useStore((s) => s.loadClip);
   const setPlaying = useStore((s) => s.setPlaying);
+  const undo = useStore((s) => s.undo);
+  const redo = useStore((s) => s.redo);
+  const canUndo = useStore((s) => s.hist.past.length > 0);
+  const canRedo = useStore((s) => s.hist.future.length > 0);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
 
   const onImport = async () => {
     try {
-      const c = await importRecording();
+      const c = await importRecording({
+        onProxy: (p) =>
+          setStatus({
+            kind: "busy",
+            label: "Converting for playback",
+            pct: Math.round(p.fraction * 100),
+          }),
+      });
       if (c) {
         loadClip(c);
         setStatus({ kind: "idle" });
+      } else {
+        setStatus({ kind: "idle" });
       }
     } catch (err) {
-      setStatus({ kind: "error", label: String(err) });
+      setStatus({ kind: "error", label: err instanceof Error ? err.message : String(err) });
     }
   };
 
@@ -83,6 +96,23 @@ export default function Topbar() {
         )}
         {status.kind === "done" && <span className="status done">{status.label}</span>}
         {status.kind === "error" && <span className="status error">{status.label}</span>}
+
+        <button
+          className="icon-btn"
+          onClick={undo}
+          disabled={!canUndo}
+          title="Undo (Ctrl+Z)"
+        >
+          ↶
+        </button>
+        <button
+          className="icon-btn"
+          onClick={redo}
+          disabled={!canRedo}
+          title="Redo (Ctrl+Shift+Z)"
+        >
+          ↷
+        </button>
 
         <button className="ghost" onClick={onImport}>
           Import
