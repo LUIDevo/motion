@@ -1,5 +1,7 @@
 mod export;
 mod proxy;
+#[cfg(target_os = "linux")]
+mod recorder;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -12,6 +14,8 @@ pub fn run() {
             export::export_cleanup,
             export::ffmpeg_available,
             proxy::make_proxy,
+            #[cfg(target_os = "linux")]
+            recorder::capture_probe,
         ])
         .run(tauri::generate_context!())
         .expect("error while running motion");
