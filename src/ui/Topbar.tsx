@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { isTauri } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import { useStore } from "../doc/store";
 import { importRecording } from "../media/import";
 import { exportVideo, pickExportPath } from "../media/export";
@@ -38,6 +38,22 @@ export default function Topbar() {
       }
     } catch (err) {
       setStatus({ kind: "error", label: err instanceof Error ? err.message : String(err) });
+    }
+  };
+
+  // Milestone check for the capture path: shows the compositor's own picker
+  // and reports the negotiated PipeWire node. Doesn't record anything yet.
+  const onProbe = async () => {
+    if (!isTauri()) {
+      setStatus({ kind: "error", label: "Recording needs the desktop app." });
+      return;
+    }
+    setStatus({ kind: "busy", label: "Waiting for the screen picker", pct: 0 });
+    try {
+      const info = await invoke<string>("capture_probe");
+      setStatus({ kind: "done", label: `Capture ready: ${info}` });
+    } catch (err) {
+      setStatus({ kind: "error", label: String(err) });
     }
   };
 
@@ -114,6 +130,9 @@ export default function Topbar() {
           ↷
         </button>
 
+        <button className="ghost" onClick={onProbe} title="Test the screen-capture portal">
+          ● Record
+        </button>
         <button className="ghost" onClick={onImport}>
           Import
         </button>
