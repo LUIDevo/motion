@@ -81,6 +81,14 @@ export interface Segment {
   speed: number;
 }
 
+/** One cursor position recorded alongside a capture. `t` is seconds into the
+ *  *source* recording, and x/y are in source pixels. */
+export interface CursorSample {
+  t: number;
+  x: number;
+  y: number;
+}
+
 export interface Clip {
   /** Source URL the <video> element loads (asset:// under Tauri, blob: in the
    *  browser fallback). Not persisted — resolved from `path` on open. */
@@ -91,6 +99,9 @@ export interface Clip {
   /** True when `src` points at a transcoded proxy rather than the original,
    *  because the webview couldn't decode the source codec. */
   proxied: boolean;
+  /** Cursor track, when this clip came from our own recorder. Imported files
+   *  have none — nothing in a finished video says where the pointer was. */
+  cursor: CursorSample[] | null;
   duration: number;
   width: number;
   height: number;

@@ -41,17 +41,31 @@ export default function Topbar() {
     }
   };
 
-  // Milestone check for the capture path: shows the compositor's own picker
-  // and reports the negotiated PipeWire node. Doesn't record anything yet.
-  const onProbe = async () => {
-    if (!isTauri()) {
-      setStatus({ kind: "error", label: "Recording needs the desktop app." });
+  const onRecord = async () => {
+    if (recording) {
+      setStatus({ kind: "busy", label: "Finishing recording", pct: 0 });
+      try {
+        const clip = await stopRecording();
+        setRecording(false);
+        loadClip(clip);
+        setStatus({
+          kind: "done",
+          label: clip.cursor
+            ? `Recorded ${clip.duration.toFixed(1)}s · ${clip.cursor.length} cursor samples`
+            : `Recorded ${clip.duration.toFixed(1)}s (no cursor track)`,
+        });
+      } catch (err) {
+        setRecording(false);
+        setStatus({ kind: "error", label: String(err) });
+      }
       return;
     }
+
     setStatus({ kind: "busy", label: "Waiting for the screen picker", pct: 0 });
     try {
-      const info = await invoke<string>("capture_probe");
-      setStatus({ kind: "done", label: `Capture ready: ${info}` });
+      await startRecording();
+      setRecording(true);
+      setStatus({ kind: "recording", label: "Recording" });
     } catch (err) {
       setStatus({ kind: "error", label: String(err) });
     }

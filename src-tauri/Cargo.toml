@@ -27,8 +27,8 @@ uuid = { version = "1", features = ["v4"] }
 # means consuming the PipeWire stream ourselves.
 [target.'cfg(target_os = "linux")'.dependencies]
 ashpd = { version = "0.11", default-features = false, features = ["tokio"] }
-pipewire = "0.10"
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "time"] }
+libc = "0.2"
 
 [profile.release]
 codegen-units = 1

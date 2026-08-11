@@ -1,4 +1,6 @@
 import type { Block, Doc, Point } from "../doc/types";
+import { sourceAt } from "../doc/time";
+import { cursorAt } from "./cursor";
 import { ease, lerp } from "./easing";
 
 export interface Camera {
@@ -46,6 +48,25 @@ export function blockAt(doc: Doc, t: number): Block | null {
   return null;
 }
 
+/**
+ * Where a block is aiming at time `t`.
+ *
+ * A follow-cursor block has no fixed target: it reads the cursor track at the
+ * matching moment. The lookup is done in *source* time, not timeline time, so
+ * the camera stays locked to the pointer even after the clip has been trimmed,
+ * split, or sped up.
+ */
+function targetOf(doc: Doc, block: Block, t: number): Point {
+  if (!block.followCursor) return block.target;
+
+  const hit = sourceAt(doc, t);
+  if (!hit) return block.target;
+
+  // Falls back to the fixed target when the track doesn't cover this moment,
+  // rather than snapping the camera somewhere arbitrary.
+  return cursorAt(doc.clip, hit.srcTime) ?? block.target;
+}
+
 /** Solve the camera for a given time. Pure — same input, same frame, always. */
 export function cameraAt(doc: Doc, t: number): Camera {
   const block = blockAt(doc, t);
@@ -54,11 +75,13 @@ export function cameraAt(doc: Doc, t: number): Camera {
   const u = blockProgress(block, t);
   if (u === null) return REST;
 
+  const target = targetOf(doc, block, t);
+
   return {
     scale: lerp(1, block.scale, u),
     center: {
-      x: lerp(REST.center.x, block.target.x, u),
-      y: lerp(REST.center.y, block.target.y, u),
+      x: lerp(REST.center.x, target.x, u),
+      y: lerp(REST.center.y, target.y, u),
     },
   };
 }
