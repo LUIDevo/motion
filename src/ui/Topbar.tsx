@@ -3,11 +3,14 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { useStore } from "../doc/store";
 import { importRecording } from "../media/import";
 import { exportVideo, pickExportPath } from "../media/export";
+import { startRecording, stopRecording } from "../media/record";
 
 type Status =
   | { kind: "idle" }
   | { kind: "busy"; label: string; pct: number }
   | { kind: "done"; label: string }
+  | { kind: "recording"; label: string }
+  | { kind: "finishing"; label: string }
   | { kind: "error"; label: string };
 
 export default function Topbar() {
@@ -19,6 +22,7 @@ export default function Topbar() {
   const canUndo = useStore((s) => s.hist.past.length > 0);
   const canRedo = useStore((s) => s.hist.future.length > 0);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
+  const [recording, setRecording] = useState(false);
 
   const onImport = async () => {
     try {
@@ -43,10 +47,12 @@ export default function Topbar() {
 
   const onRecord = async () => {
     if (recording) {
-      setStatus({ kind: "busy", label: "Finishing recording", pct: 0 });
+      // Flip out of the recording state before awaiting, so the button stops
+      // offering to stop something that's already stopping.
+      setRecording(false);
+      setStatus({ kind: "finishing", label: "Finishing recording" });
       try {
         const clip = await stopRecording();
-        setRecording(false);
         loadClip(clip);
         setStatus({
           kind: "done",
@@ -55,7 +61,6 @@ export default function Topbar() {
             : `Recorded ${clip.duration.toFixed(1)}s (no cursor track)`,
         });
       } catch (err) {
-        setRecording(false);
         setStatus({ kind: "error", label: String(err) });
       }
       return;
@@ -143,8 +148,18 @@ export default function Topbar() {
             {status.label} {status.pct}%
           </span>
         )}
+        {status.kind === "recording" && (
+          <span className="status rec">{status.label}</span>
+        )}
+        {status.kind === "finishing" && (
+          <span className="status busy">{status.label}…</span>
+        )}
         {status.kind === "done" && <span className="status done">{status.label}</span>}
-        {status.kind === "error" && <span className="status error">{status.label}</span>}
+        {status.kind === "error" && (
+          <span className="status error" title={status.label}>
+            {status.label.split("\n")[0]}
+          </span>
+        )}
 
         <button
           className="icon-btn"
@@ -166,8 +181,12 @@ export default function Topbar() {
         <button className="ghost" onClick={onCursorProbe} title="Test cursor tracking">
           Cursor
         </button>
-        <button className="ghost" onClick={onProbe} title="Test the screen-capture portal">
-          ● Record
+        <button
+          className={recording ? "rec-btn active" : "rec-btn"}
+          onClick={onRecord}
+          title={recording ? "Stop recording" : "Record the screen"}
+        >
+          {recording ? "■ Stop" : "● Record"}
         </button>
         <button className="ghost" onClick={onImport}>
           Import

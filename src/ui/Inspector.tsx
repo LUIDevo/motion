@@ -51,6 +51,7 @@ function ZoomPanel({ id }: { id: string }) {
   const update = useStore((s) => s.updateBlock);
   const remove = useStore((s) => s.removeBlock);
   const setPlayhead = useStore((s) => s.setPlayhead);
+  const hasCursor = useStore((s) => (s.doc.clip?.cursor?.length ?? 0) > 0);
 
   const len = block.end - block.start;
   const maxRamp = Math.max(0.05, len / 2);
@@ -111,6 +112,19 @@ function ZoomPanel({ id }: { id: string }) {
 
       <div className="section">
         <div className="section-title">Target</div>
+        <Row label="Follow">
+          <input
+            type="checkbox"
+            checked={block.followCursor}
+            disabled={!hasCursor}
+            onChange={(e) => update(id, { followCursor: e.target.checked })}
+            title={
+              hasCursor
+                ? "Track the recorded cursor"
+                : "Only available on clips recorded in Motion — imported video carries no cursor track"
+            }
+          />
+        </Row>
         <Row label="X">
           <Slider
             value={block.target.x}
@@ -130,7 +144,11 @@ function ZoomPanel({ id }: { id: string }) {
           />
         </Row>
         <p className="note">
-          Scrub into the block and click the preview to re-aim it.
+          {block.followCursor
+            ? "The camera tracks the recorded cursor, smoothed. X and Y are the fallback for moments the track doesn't cover."
+            : hasCursor
+              ? "Scrub into the block and click the preview to re-aim it, or turn on Follow."
+              : "Scrub into the block and click the preview to re-aim it."}
         </p>
       </div>
 

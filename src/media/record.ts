@@ -7,6 +7,7 @@ interface RecordingResult {
   width: number;
   height: number;
   duration: number;
+  cursor: CursorSample[];
 }
 
 export async function startRecording(): Promise<void> {
@@ -14,19 +15,30 @@ export async function startRecording(): Promise<void> {
   await invoke<string>("start_recording");
 }
 
-/** Read a probe of the video to get its true duration. The recorder reports
- *  wall-clock elapsed time, which includes the moment before the first frame
- *  arrives and so runs slightly long. */
-function probe(src: string): Promise<number> {
+/**
+ * Confirm the webview can actually play the file back, and get its duration.
+ *
+ * Always settles: a video element that neither loads nor errors would
+ * otherwise hang the whole stop flow with no way out, which is exactly what
+ * left the UI stuck on "Finishing recording".
+ */
+function probe(src: string, timeoutMs = 4000): Promise<number> {
   return new Promise((resolve) => {
     const v = document.createElement("video");
+    let settled = false;
+    const done = (d: number) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      v.removeAttribute("src");
+      resolve(d);
+    };
+    const timer = setTimeout(() => done(0), timeoutMs);
+
     v.preload = "metadata";
     v.muted = true;
-    v.onloadedmetadata = () => {
-      resolve(isFinite(v.duration) && v.duration > 0 ? v.duration : 0);
-      v.src = "";
-    };
-    v.onerror = () => resolve(0);
+    v.onloadedmetadata = () => done(isFinite(v.duration) && v.duration > 0 ? v.duration : 0);
+    v.onerror = () => done(0);
     v.src = src;
   });
 }
@@ -44,16 +56,6 @@ export async function stopRecording(): Promise<Clip> {
   const rec = await invoke<RecordingResult>("stop_recording");
   const src = convertFileSrc(rec.videoPath);
 
-  let cursor: CursorSample[] | null = null;
-  try {
-    const res = await fetch(convertFileSrc(rec.cursorPath));
-    cursor = (await res.json()) as CursorSample[];
-  } catch {
-    // A missing or unreadable track only costs follow-cursor, so the recording
-    // is still worth loading.
-    cursor = null;
-  }
-
   const measured = await probe(src);
 
   return {
@@ -61,7 +63,7 @@ export async function stopRecording(): Promise<Clip> {
     path: rec.videoPath,
     name: rec.videoPath.split("/").pop() ?? "recording.webm",
     proxied: false,
-    cursor,
+    cursor: rec.cursor.length > 0 ? rec.cursor : null,
     duration: measured || rec.duration,
     width: rec.width,
     height: rec.height,

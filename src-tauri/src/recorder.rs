@@ -19,7 +19,8 @@ use serde::{Deserialize, Serialize};
 use std::os::fd::{AsRawFd, IntoRawFd, OwnedFd};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
-use std::sync::Mutex;
+use std::io::{BufRead, BufReader};
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use tauri::{AppHandle, Manager, State};
 
@@ -33,6 +34,10 @@ pub struct Recording {
     pub width: u32,
     pub height: u32,
     pub duration: f64,
+    /// The cursor track itself, not just a path to it. Handing the samples
+    /// back inline saves the UI a second trip through the asset protocol —
+    /// one that could stall with no way to time it out.
+    pub cursor: Vec<crate::cursor::CursorSample>,
 }
 
 /// A negotiated capture source, before any frames have been pulled.
@@ -120,6 +125,10 @@ pub struct Active {
     video_path: PathBuf,
     monitor: Monitor,
     started: Instant,
+    /// Drained on a thread. A piped stream with no reader fills its buffer and
+    /// then blocks the writer — which stalls the whole capture pipeline — so
+    /// this is not optional bookkeeping.
+    log: Arc<Mutex<Vec<String>>>,
     /// Kept alive for the duration: dropping it revokes the portal grant and
     /// the PipeWire node disappears mid-recording.
     _session: ashpd::desktop::Session<'static, ashpd::desktop::screencast::Screencast<'static>>,
@@ -128,40 +137,103 @@ pub struct Active {
 #[derive(Default)]
 pub struct RecorderState(pub Mutex<Option<Active>>);
 
-/// Encode settings. VP8 in WebM rather than H.264 because it needs no extra
-/// system packages to *play back* — the editor loads its own recordings
-/// through the webview, which is exactly where codec support is thinnest.
-/// `deadline=1` is libvpx's realtime mode, which matters when the encoder has
-/// to keep up with a live screen.
-fn build_pipeline(fd: i32, node: u32, out: &Path, fps: u32) -> Vec<String> {
-    vec![
+#[derive(Clone, Copy, PartialEq)]
+pub enum Encoder {
+    /// NVENC. A desktop-sized capture is far more than a software encoder can
+    /// keep up with in realtime, and falling behind doesn't degrade quality —
+    /// it stalls the capture outright.
+    Nvenc,
+    /// Software fallback. Fine at modest resolutions; will struggle above 1080p.
+    Vp8,
+}
+
+impl Encoder {
+    fn container_ext(self) -> &'static str {
+        match self {
+            Encoder::Nvenc => "mp4",
+            Encoder::Vp8 => "webm",
+        }
+    }
+}
+
+fn element_exists(name: &str) -> bool {
+    Command::new("gst-inspect-1.0")
+        .arg(name)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
+}
+
+pub fn pick_encoder() -> Encoder {
+    if element_exists("nvh264enc") {
+        Encoder::Nvenc
+    } else {
+        Encoder::Vp8
+    }
+}
+
+/// Build the capture pipeline.
+///
+/// The queue directly after the source is the important part, and its absence
+/// is what stalled earlier captures: without somewhere to buffer, a slow
+/// encoder applies backpressure straight to `pipewiresrc`, which stops pulling
+/// from the compositor and never recovers. `leaky=downstream` makes a
+/// struggling encoder drop frames instead — a dropped frame costs a moment of
+/// smoothness, a stall costs the entire recording.
+fn build_pipeline(fd: i32, node: u32, out: &Path, fps: u32, enc: Encoder) -> Vec<String> {
+    let mut a: Vec<String> = vec![
         // -e makes gst-launch send EOS on SIGINT, which is what finalises the
-        // WebM index. Killing it any other way leaves an unplayable file.
+        // container index. Killing it any other way leaves an unplayable file.
         "-e".into(),
         "pipewiresrc".into(),
         format!("fd={fd}"),
         format!("path={node}"),
-        "do-timestamp=true".into(),
+        "!".into(),
+        "queue".into(),
+        "leaky=downstream".into(),
+        "max-size-buffers=16".into(),
+        "max-size-bytes=0".into(),
+        "max-size-time=0".into(),
         "!".into(),
         "videoconvert".into(),
         "!".into(),
         "videorate".into(),
+        "drop-only=true".into(),
         "!".into(),
         format!("video/x-raw,framerate={fps}/1"),
         "!".into(),
-        "queue".into(),
-        "!".into(),
-        "vp8enc".into(),
-        "deadline=1".into(),
-        "cpu-used=4".into(),
-        "threads=8".into(),
-        "target-bitrate=12000000".into(),
-        "!".into(),
-        "webmmux".into(),
+    ];
+
+    match enc {
+        Encoder::Nvenc => a.extend([
+            "nvh264enc".into(),
+            "preset=low-latency-hq".into(),
+            "bitrate=24000".into(),
+            "!".into(),
+            "h264parse".into(),
+            "!".into(),
+            "mp4mux".into(),
+            "faststart=true".into(),
+        ]),
+        Encoder::Vp8 => a.extend([
+            "vp8enc".into(),
+            "deadline=1".into(),
+            "cpu-used=12".into(),
+            "threads=8".into(),
+            "target-bitrate=12000000".into(),
+            "!".into(),
+            "webmmux".into(),
+        ]),
+    }
+
+    a.extend([
         "!".into(),
         "filesink".into(),
         format!("location={}", out.display()),
-    ]
+    ]);
+    a
 }
 
 #[tauri::command]
@@ -190,7 +262,8 @@ pub async fn start_recording(
         .duration_since(std::time::UNIX_EPOCH)
         .map_err(|e| e.to_string())?
         .as_secs();
-    let video_path = dir.join(format!("recording-{stamp}.webm"));
+    let encoder = pick_encoder();
+    let video_path = dir.join(format!("recording-{stamp}.{}", encoder.container_ext()));
 
     // gst-launch is a separate process, so the PipeWire fd has to survive
     // exec. ashpd hands us a CLOEXEC fd; dup() produces a copy without that
@@ -201,13 +274,30 @@ pub async fn start_recording(
         return Err("could not duplicate the PipeWire fd".into());
     }
 
-    let args = build_pipeline(dup_fd, source.node_id, &video_path, 30);
-    let child = Command::new("gst-launch-1.0")
+    let args = build_pipeline(dup_fd, source.node_id, &video_path, 30, encoder);
+    let mut child = Command::new("gst-launch-1.0")
         .args(&args)
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|e| format!("could not run gst-launch-1.0: {e}"))?;
+
+    // Drain stderr continuously. Keeping only the tail bounds memory while
+    // still leaving enough context to explain a failed capture.
+    let log = Arc::new(Mutex::new(Vec::<String>::new()));
+    if let Some(err) = child.stderr.take() {
+        let sink = log.clone();
+        std::thread::spawn(move || {
+            for line in BufReader::new(err).lines().map_while(Result::ok) {
+                if let Ok(mut v) = sink.lock() {
+                    if v.len() >= 200 {
+                        v.remove(0);
+                    }
+                    v.push(line);
+                }
+            }
+        });
+    }
 
     // Our copy has been inherited by the child; close ours so the fd isn't
     // leaked for the life of the app.
@@ -222,6 +312,7 @@ pub async fn start_recording(
         video_path: video_path.clone(),
         monitor,
         started: Instant::now(),
+        log,
         _session: source.session,
     });
 
@@ -244,6 +335,7 @@ pub async fn stop_recording(state: State<'_, RecorderState>) -> Result<Recording
         video_path,
         monitor,
         started,
+        log,
         _session,
     } = active;
 
@@ -286,13 +378,45 @@ pub async fn stop_recording(state: State<'_, RecorderState>) -> Result<Recording
     )
     .map_err(|e| e.to_string())?;
 
+    // A capture that stalls still leaves a valid but nearly empty file, which
+    // would otherwise load as a working clip and look like an editor bug.
+    // Compare against how long we were actually recording and refuse it.
+    let captured = probe_duration(&video_path).unwrap_or(0.0);
+    if elapsed > 2.0 && captured < elapsed * 0.5 {
+        let tail = log
+            .lock()
+            .map(|v| v.iter().rev().take(12).cloned().collect::<Vec<_>>().join("\n"))
+            .unwrap_or_default();
+        return Err(format!(
+            "capture stalled: recorded {elapsed:.1}s but only {captured:.1}s of video was \
+             written to {}.\n\ngst-launch said:\n{tail}",
+            video_path.display()
+        ));
+    }
+
     Ok(Recording {
         video_path: video_path.to_string_lossy().to_string(),
         cursor_path: cursor_path.to_string_lossy().to_string(),
         width,
         height,
-        duration: elapsed,
+        // The file's own duration is the honest one; wall-clock includes the
+        // time before the first frame ever arrived.
+        duration: if captured > 0.0 { captured } else { elapsed },
+        cursor: scaled,
     })
+}
+
+fn probe_duration(path: &Path) -> Option<f64> {
+    let out = Command::new("ffprobe")
+        .args([
+            "-v", "error",
+            "-show_entries", "format=duration",
+            "-of", "default=nw=1:nk=1",
+        ])
+        .arg(path)
+        .output()
+        .ok()?;
+    String::from_utf8_lossy(&out.stdout).trim().parse().ok()
 }
 
 fn probe_dimensions(path: &Path) -> Option<(u32, u32)> {

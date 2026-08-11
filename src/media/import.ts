@@ -66,7 +66,7 @@ async function fromBrowser(): Promise<Clip | null> {
       const src = URL.createObjectURL(file);
       try {
         const meta = await probe(src);
-        resolve({ src, path: null, name: file.name, proxied: false, ...meta });
+        resolve({ src, path: null, name: file.name, proxied: false, cursor: null, ...meta });
       } catch (err) {
         reject(err);
       }
@@ -105,7 +105,7 @@ export async function importRecording(hooks: ImportHooks = {}): Promise<Clip | n
   try {
     const direct = convertFileSrc(picked);
     const meta = await probe(direct);
-    return { src: direct, path: picked, name, proxied: false, ...meta };
+    return { src: direct, path: picked, name, proxied: false, cursor: null, ...meta };
   } catch (err) {
     if (!(err instanceof CodecError)) throw err;
   }
@@ -120,5 +120,5 @@ export async function importRecording(hooks: ImportHooks = {}): Promise<Clip | n
 
   const proxySrc = convertFileSrc(proxyPath);
   const meta = await probe(proxySrc);
-  return { src: proxySrc, path: picked, name, proxied: true, ...meta };
+  return { src: proxySrc, path: picked, name, proxied: true, cursor: null, ...meta };
 }

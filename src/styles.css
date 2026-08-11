@@ -690,3 +690,39 @@ input[type="color"] {
   border-radius: 50%;
   background: var(--danger);
 }
+
+.rec-btn {
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-ctl);
+  padding: 6px 13px;
+  color: var(--danger);
+  font-weight: 500;
+}
+
+.rec-btn:hover:not(:disabled) {
+  background: #fdecea;
+  border-color: var(--danger);
+}
+
+.rec-btn.active {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+
+.status.rec {
+  background: var(--danger);
+  color: #fff;
+}
+
+/* Pulses so a running capture is unmistakable at a glance. */
+.status.rec::before {
+  content: "● ";
+  animation: rec-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes rec-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
