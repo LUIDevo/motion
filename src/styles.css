@@ -424,6 +424,7 @@ input[type="color"] {
 .stage-viewport {
   flex: 1;
   min-height: 0;
+  position: relative;
   display: grid;
   place-items: center;
   background: var(--panel);
@@ -441,8 +442,21 @@ input[type="color"] {
   cursor: crosshair;
 }
 
+/*
+ * The source video is never shown directly — every frame reaches the screen
+ * through the canvas compositor. It must still stay in the render tree
+ * though: `display: none` removes it, and WebKit then stops decoding frames
+ * for it, so drawImage silently draws nothing and readyState never advances.
+ * One transparent pixel keeps it live at no visual cost.
+ */
 .hidden-video {
-  display: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .transport {
