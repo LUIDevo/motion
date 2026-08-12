@@ -39,6 +39,12 @@ export interface ZoomBlock {
   target: Point;
   ease: EaseName;
   /**
+   * How much the spring overshoots before settling, 0 to 1. Only affects the
+   * `spring` easing. A little overshoot reads as physical; a lot reads as
+   * cartoonish.
+   */
+  bounce: number;
+  /**
    * When true the target is driven by the cursor track instead of `target`.
    * Nothing produces a cursor track yet (imports have no cursor metadata), so
    * this is inert until the recorder lands — but blocks written today stay
@@ -107,6 +113,23 @@ export interface Clip {
   height: number;
 }
 
+/**
+ * What a newly placed zoom starts out as.
+ *
+ * Kept on the document rather than hard-coded, because the right pace is a
+ * matter of taste and per-project consistency — every zoom in one demo wanting
+ * the same feel is the normal case, not the exception.
+ */
+export interface ZoomDefaults {
+  scale: number;
+  /** Total length of the move, including both ramps. */
+  duration: number;
+  /** Ramp in/out length. The camera spends this long accelerating. */
+  ramp: number;
+  ease: EaseName;
+  bounce: number;
+}
+
 export interface Doc {
   version: 1;
   output: { width: number; height: number };
@@ -116,4 +139,11 @@ export interface Doc {
   background: Background;
   frame: FrameStyle;
   blocks: Block[];
+  zoomDefaults: ZoomDefaults;
+  /**
+   * Half-width of the cursor smoothing window, in seconds. Larger values make
+   * a follow-cursor camera calmer and less literal; smaller values track the
+   * pointer more exactly, jitter included.
+   */
+  cursorSmoothing: number;
 }

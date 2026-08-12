@@ -52,6 +52,7 @@ function ZoomPanel({ id }: { id: string }) {
   const remove = useStore((s) => s.removeBlock);
   const setPlayhead = useStore((s) => s.setPlayhead);
   const hasCursor = useStore((s) => (s.doc.clip?.cursor?.length ?? 0) > 0);
+  const applyToAll = useStore((s) => s.applyZoomStyle);
 
   const len = block.end - block.start;
   const maxRamp = Math.max(0.05, len / 2);
@@ -88,6 +89,17 @@ function ZoomPanel({ id }: { id: string }) {
             ))}
           </select>
         </Row>
+        {block.ease === "spring" && (
+          <Row label="Bounce">
+            <Slider
+              value={block.bounce}
+              min={0}
+              max={1}
+              step={0.05}
+              onChange={(v) => update(id, { bounce: v })}
+            />
+          </Row>
+        )}
         <Row label="Ramp in">
           <Slider
             value={Math.min(block.rampIn, maxRamp)}
@@ -154,6 +166,13 @@ function ZoomPanel({ id }: { id: string }) {
 
       <div className="section">
         <div className="section-title">Timing</div>
+        <button className="wide-btn" onClick={() => applyToAll(id)}>
+          Use this zoom's feel everywhere
+        </button>
+        <p className="note">
+          Copies scale, easing, bounce and ramps onto every other zoom, and
+          makes them the default for new ones.
+        </p>
         <Row label="Start">
           <button className="ghost" onClick={() => setPlayhead(block.start)}>
             {block.start.toFixed(2)}s
@@ -237,11 +256,16 @@ function SegmentPanel({ id }: { id: string }) {
 function ScenePanel() {
   const doc = useStore((s) => s.doc);
   const patch = useStore((s) => s.patchDoc);
+  const hasCursor = (doc.clip?.cursor?.length ?? 0) > 0;
   const bg = doc.background;
 
   const setBg = (next: Background) => patch({ background: next });
   const setFrame = (k: keyof typeof doc.frame, v: number) =>
     patch({ frame: { ...doc.frame, [k]: v } });
+  const setZoomDefault = <K extends keyof typeof doc.zoomDefaults>(
+    k: K,
+    v: (typeof doc.zoomDefaults)[K],
+  ) => patch({ zoomDefaults: { ...doc.zoomDefaults, [k]: v } });
 
   return (
     <>
@@ -360,6 +384,87 @@ function ScenePanel() {
           />
         </Row>
       </div>
+
+      <div className="section">
+        <div className="section-title">New zoom defaults</div>
+        <Row label="Scale">
+          <Slider
+            value={doc.zoomDefaults.scale}
+            min={1}
+            max={6}
+            step={0.05}
+            suffix="×"
+            onChange={(v) => setZoomDefault("scale", v)}
+          />
+        </Row>
+        <Row label="Length">
+          <Slider
+            value={doc.zoomDefaults.duration}
+            min={1}
+            max={12}
+            step={0.1}
+            suffix="s"
+            onChange={(v) => setZoomDefault("duration", v)}
+          />
+        </Row>
+        <Row label="Ramp">
+          <Slider
+            value={doc.zoomDefaults.ramp}
+            min={0.1}
+            max={4}
+            step={0.05}
+            suffix="s"
+            onChange={(v) => setZoomDefault("ramp", v)}
+          />
+        </Row>
+        <Row label="Easing">
+          <select
+            value={doc.zoomDefaults.ease}
+            onChange={(e) => setZoomDefault("ease", e.target.value as never)}
+          >
+            {EASE_NAMES.map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </Row>
+        {doc.zoomDefaults.ease === "spring" && (
+          <Row label="Bounce">
+            <Slider
+              value={doc.zoomDefaults.bounce}
+              min={0}
+              max={1}
+              step={0.05}
+              onChange={(v) => setZoomDefault("bounce", v)}
+            />
+          </Row>
+        )}
+        <p className="note">
+          Ramp is how long the camera spends accelerating. Below about a second
+          a push-in reads as a cut rather than a move.
+        </p>
+      </div>
+
+      {hasCursor && (
+        <div className="section">
+          <div className="section-title">Cursor</div>
+          <Row label="Smoothing">
+            <Slider
+              value={doc.cursorSmoothing}
+              min={0.02}
+              max={1}
+              step={0.02}
+              suffix="s"
+              onChange={(v) => patch({ cursorSmoothing: v })}
+            />
+          </Row>
+          <p className="note">
+            How much of the pointer's jitter to average away when a zoom is
+            following it. Higher is calmer but lags fast movements.
+          </p>
+        </div>
+      )}
 
       <div className="section">
         <div className="section-title">Output</div>

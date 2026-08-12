@@ -93,6 +93,53 @@ function paintBackground(
   ctx.fillRect(0, 0, w, h);
 }
 
+interface ShadowSprite {
+  key: string;
+  canvas: HTMLCanvasElement;
+  pad: number;
+}
+
+let shadowCache: ShadowSprite | null = null;
+
+/**
+ * The frame's drop shadow, rendered once and reused.
+ *
+ * A large `shadowBlur` is one of the most expensive things a 2D canvas can do,
+ * and paying for it on every frame dominated the preview's cost — especially
+ * under software rendering. The geometry only changes when the layout does, so
+ * it's baked into a sprite and blitted instead.
+ */
+function shadowSprite(
+  w: number,
+  h: number,
+  radius: number,
+  blur: number,
+  opacity: number,
+  offsetY: number,
+): ShadowSprite {
+  const key = `${Math.round(w)}x${Math.round(h)}:${radius}:${blur}:${opacity}:${offsetY}`;
+  if (shadowCache && shadowCache.key === key) return shadowCache;
+
+  const pad = Math.ceil(blur * 2 + Math.abs(offsetY) + 4);
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.ceil(w + pad * 2));
+  canvas.height = Math.max(1, Math.ceil(h + pad * 2));
+
+  const g = canvas.getContext("2d");
+  if (g) {
+    g.shadowColor = `rgba(0,0,0,${opacity})`;
+    g.shadowBlur = blur;
+    g.shadowOffsetY = offsetY;
+    g.fillStyle = "#000";
+    g.beginPath();
+    g.roundRect(pad, pad, w, h, radius);
+    g.fill();
+  }
+
+  shadowCache = { key, canvas, pad };
+  return shadowCache;
+}
+
 /** Placeholder shown before a recording is imported. */
 function paintEmpty(ctx: CanvasRenderingContext2D, frame: Rect, radius: number) {
   ctx.save();
@@ -117,12 +164,22 @@ export function renderFrame(
   doc: Doc,
   time: number,
   source: CanvasImageSource | null,
+  /**
+   * Ratio of canvas pixels to output pixels. The preview draws at the size it
+   * is actually displayed rather than at the recording's full resolution —
+   * compositing 2560×1440 for an on-screen box a third that size was most of
+   * the preview's cost. Export leaves this at 1 and gets full resolution.
+   */
+  viewScale = 1,
 ) {
   const { width: ow, height: oh } = doc.output;
   const frame = layout(doc);
   const cam = doc.clip ? cameraAt(doc, time) : REST;
 
   ctx.save();
+  // Everything below is written in output coordinates; this is the only place
+  // that knows the preview might be smaller.
+  ctx.setTransform(viewScale, 0, 0, viewScale, 0, 0);
   ctx.clearRect(0, 0, ow, oh);
   paintBackground(ctx, doc.background, ow, oh);
 
@@ -142,19 +199,19 @@ export function renderFrame(
     return;
   }
 
-  // Shadow first, as its own pass: canvas shadows apply to whatever you paint,
-  // so casting it off a filled rect keeps it from being drawn over the video.
-  // Blur and offset are divided by scale so the shadow keeps a constant
-  // apparent size as the camera pushes in.
-  ctx.save();
-  ctx.shadowColor = `rgba(0,0,0,${doc.frame.shadowOpacity})`;
-  ctx.shadowBlur = doc.frame.shadowBlur / cam.scale;
-  ctx.shadowOffsetY = doc.frame.shadowY / cam.scale;
-  ctx.fillStyle = "#000";
-  ctx.beginPath();
-  ctx.roundRect(frame.x, frame.y, frame.w, frame.h, radius);
-  ctx.fill();
-  ctx.restore();
+  // Cached shadow, blitted rather than blurred. It scales with the camera,
+  // which reads correctly: the whole framed recording is what's moving closer.
+  if (doc.frame.shadowOpacity > 0) {
+    const sprite = shadowSprite(
+      frame.w,
+      frame.h,
+      radius,
+      doc.frame.shadowBlur,
+      doc.frame.shadowOpacity,
+      doc.frame.shadowY,
+    );
+    ctx.drawImage(sprite.canvas, frame.x - sprite.pad, frame.y - sprite.pad);
+  }
 
   ctx.save();
   ctx.beginPath();

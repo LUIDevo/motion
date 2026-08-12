@@ -1,4 +1,7 @@
+use tauri::Manager;
+
 mod export;
+mod media_server;
 mod proxy;
 #[cfg(target_os = "linux")]
 mod cursor;
@@ -10,6 +13,14 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(recorder::RecorderState::default())
+        .setup(|app| {
+            // The webview loads media over loopback HTTP, so the server has to
+            // exist before any clip can be opened.
+            let server = tauri::async_runtime::block_on(media_server::start())
+                .map_err(|e| std::io::Error::other(e))?;
+            app.manage(server);
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             export::export_begin,
             export::export_frame,
@@ -17,6 +28,7 @@ pub fn run() {
             export::export_cleanup,
             export::ffmpeg_available,
             proxy::make_proxy,
+            media_server::media_url,
             #[cfg(target_os = "linux")]
             recorder::capture_probe,
             #[cfg(target_os = "linux")]

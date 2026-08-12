@@ -740,3 +740,42 @@ input[type="color"] {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.25; }
 }
+
+/* Temporary instrumentation: reports the source element's real state, since
+   a canvas that draws nothing looks identical whatever the cause. */
+.diag {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 5;
+  background: rgba(20, 22, 26, 0.9);
+  color: #d8dee9;
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  line-height: 1.5;
+  padding: 7px 9px;
+  border-radius: 8px;
+  max-width: 90%;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.diag b {
+  color: #7aa0ff;
+  font-weight: 600;
+}
+
+.wide-btn {
+  width: 100%;
+  background: var(--panel-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-ctl);
+  padding: 6px 10px;
+  margin-bottom: 2px;
+}
+
+.wide-btn:hover:not(:disabled) {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}

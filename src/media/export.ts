@@ -59,6 +59,9 @@ export async function exportVideo(
 
   // A dedicated element so scrubbing the export doesn't fight the preview.
   const v = document.createElement("video");
+  // Must be set before src: it decides whether the canvas ends up tainted,
+  // and a tainted canvas makes the toDataURL below throw.
+  v.crossOrigin = "anonymous";
   v.src = doc.clip.src;
   v.muted = true;
   v.preload = "auto";

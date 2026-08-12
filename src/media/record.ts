@@ -1,4 +1,5 @@
-import { convertFileSrc, invoke, isTauri } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
+import { mediaUrl } from "./import";
 import type { Clip, CursorSample } from "../doc/types";
 
 interface RecordingResult {
@@ -37,6 +38,7 @@ function probe(src: string, timeoutMs = 4000): Promise<number> {
 
     v.preload = "metadata";
     v.muted = true;
+    v.crossOrigin = "anonymous";
     v.onloadedmetadata = () => done(isFinite(v.duration) && v.duration > 0 ? v.duration : 0);
     v.onerror = () => done(0);
     v.src = src;
@@ -54,7 +56,7 @@ export async function stopRecording(): Promise<Clip> {
   if (!isTauri()) throw new Error("Recording needs the desktop app.");
 
   const rec = await invoke<RecordingResult>("stop_recording");
-  const src = convertFileSrc(rec.videoPath);
+  const src = await mediaUrl(rec.videoPath);
 
   const measured = await probe(src);
 

@@ -10,7 +10,7 @@ import type { Clip, CursorSample, Point } from "../doc/types";
  * looks forward as well as back, the camera leads into a move slightly rather
  * than lagging behind it.
  */
-const SMOOTH_HALF_WINDOW = 0.22;
+const DEFAULT_SMOOTHING = 0.22;
 
 /** Index of the last sample at or before `t`, or -1. Samples are recorded in
  *  order, so a binary search is safe and keeps per-frame cost flat. */
@@ -36,7 +36,11 @@ function lastIndexBefore(samples: CursorSample[], t: number): number {
  * Returns null when the clip has no cursor track or the time falls outside it,
  * so callers can fall back to a fixed target rather than snapping to a corner.
  */
-export function cursorAt(clip: Clip | null, srcTime: number): Point | null {
+export function cursorAt(
+  clip: Clip | null,
+  srcTime: number,
+  smoothing = DEFAULT_SMOOTHING,
+): Point | null {
   const samples = clip?.cursor;
   if (!clip || !samples || samples.length === 0) return null;
   if (clip.width <= 0 || clip.height <= 0) return null;
@@ -52,13 +56,13 @@ export function cursorAt(clip: Clip | null, srcTime: number): Point | null {
   let n = 0;
 
   for (let i = centre; i >= 0; i--) {
-    if (srcTime - samples[i].t > SMOOTH_HALF_WINDOW) break;
+    if (srcTime - samples[i].t > smoothing) break;
     sx += samples[i].x;
     sy += samples[i].y;
     n++;
   }
   for (let i = centre + 1; i < samples.length; i++) {
-    if (samples[i].t - srcTime > SMOOTH_HALF_WINDOW) break;
+    if (samples[i].t - srcTime > smoothing) break;
     sx += samples[i].x;
     sy += samples[i].y;
     n++;

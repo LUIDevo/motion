@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useStore } from "../doc/store";
 import { docDuration, sourceAt } from "../doc/time";
 import type { Doc } from "../doc/types";
@@ -15,6 +15,7 @@ function drawTarget(
   doc: Doc,
   time: number,
   target: { x: number; y: number },
+  viewScale: number,
 ) {
   const frame = layout(doc);
   const cam = doc.clip ? cameraAt(doc, time) : REST;
@@ -26,6 +27,7 @@ function drawTarget(
 
   const r = Math.max(10, doc.output.width * 0.008);
   ctx.save();
+  ctx.setTransform(viewScale, 0, 0, viewScale, 0, 0);
   ctx.strokeStyle = "#2C60F6";
   ctx.lineWidth = Math.max(2, r * 0.22);
   ctx.beginPath();
@@ -43,9 +45,50 @@ function drawTarget(
  *  enough that we aren't seeking every frame during normal playback. */
 const DRIFT_TOLERANCE = 0.2;
 
+const READY_STATE = ["HAVE_NOTHING", "HAVE_METADATA", "HAVE_CURRENT", "HAVE_FUTURE", "HAVE_ENOUGH"];
+const NETWORK_STATE = ["EMPTY", "IDLE", "LOADING", "NO_SOURCE"];
+const MEDIA_ERR = ["", "ABORTED", "NETWORK", "DECODE", "SRC_NOT_SUPPORTED"];
+
+interface Diagnostics {
+  src: string;
+  ready: number;
+  network: number;
+  error: string;
+  dims: string;
+  currentTime: number;
+}
+
+/**
+ * Ask for the source over fetch as well as through the media element.
+ *
+ * The two take different paths: fetch goes through the webview's normal
+ * networking, while media decoding happens in a separate process. If fetch can
+ * read the bytes and the video element still reports NO_SOURCE, the file and
+ * the permissions are fine and it's the media path that can't reach the
+ * custom scheme.
+ */
+async function probeFetch(src: string): Promise<string> {
+  try {
+    const res = await fetch(src, { headers: { Range: "bytes=0-1023" } });
+    const buf = await res.arrayBuffer();
+    return `${res.status} ${res.headers.get("content-type") ?? "no-type"} ${buf.byteLength}B`;
+  } catch (err) {
+    return `threw: ${err instanceof Error ? err.message : String(err)}`;
+  }
+}
+
 export default function Stage() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  /** Canvas pixels per output pixel; see renderFrame's viewScale. */
+  const viewScaleRef = useRef(1);
+  /** Authoritative time during playback. The store is updated far less often,
+   *  because every write re-renders the timeline and inspector. */
+  const timeRef = useRef(0);
+  const [diag, setDiag] = useState<Diagnostics | null>(null);
+  const [showDiag, setShowDiag] = useState(false);
+  const [fetchResult, setFetchResult] = useState<string>("(not tried)");
   /** Wall-clock anchor for playback, so cuts and speed changes advance the
    *  playhead at the right rate regardless of what the source is doing. */
   const tickRef = useRef<number>(0);
@@ -59,6 +102,42 @@ export default function Stage() {
   const setPlayhead = useStore((s) => s.setPlayhead);
   const addZoom = useStore((s) => s.addZoom);
   const updateBlock = useStore((s) => s.updateBlock);
+
+  // Size the backing store to however large the canvas actually appears,
+  // capped so a huge window can't make the preview cost more than the export.
+  useEffect(() => {
+    const el = viewportRef.current;
+    const canvas = canvasRef.current;
+    if (!el || !canvas) return;
+
+    const resize = () => {
+      const box = el.getBoundingClientRect();
+      const pad = 36;
+      const availW = Math.max(64, box.width - pad);
+      const availH = Math.max(64, box.height - pad);
+      const fit = Math.min(availW / output.width, availH / output.height);
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const scale = Math.min(fit * dpr, 1);
+
+      viewScaleRef.current = scale;
+      canvas.width = Math.max(1, Math.round(output.width * scale));
+      canvas.height = Math.max(1, Math.round(output.height * scale));
+    };
+
+    resize();
+    const ro = new ResizeObserver(resize);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [output.width, output.height]);
+
+  useEffect(() => {
+    if (clip) {
+      setFetchResult("checking…");
+      void probeFetch(clip.src).then(setFetchResult);
+    } else {
+      setFetchResult("(no clip)");
+    }
+  }, [clip]);
 
   useEffect(() => {
     const v = videoRef.current;
@@ -91,8 +170,45 @@ export default function Stage() {
     if (Math.abs(v.currentTime - hit.srcTime) > 0.02) v.currentTime = hit.srcTime;
   }, [playhead, playing]);
 
+  // Sampled a few times a second rather than per frame: enough to watch a load
+  // progress or fail, without re-rendering the tree at 60fps.
+  // Kept behind a toggle rather than deleted: it was the only thing that
+  // actually identified why media wouldn't load, and costs nothing while off.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (el && /^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) return;
+      if (e.key === "d" || e.key === "D") setShowDiag((v) => !v);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  useEffect(() => {
+    if (!showDiag) {
+      setDiag(null);
+      return;
+    }
+    const id = setInterval(() => {
+      const v = videoRef.current;
+      if (!v) return setDiag(null);
+      const err = v.error;
+      setDiag({
+        src: v.currentSrc || "(none)",
+        ready: v.readyState,
+        network: v.networkState,
+        error: err ? `${MEDIA_ERR[err.code] ?? err.code}${err.message ? `: ${err.message}` : ""}` : "none",
+        dims: `${v.videoWidth}×${v.videoHeight}`,
+        currentTime: v.currentTime,
+      });
+    }, 250);
+    return () => clearInterval(id);
+  }, [showDiag]);
+
   useEffect(() => {
     let raf = 0;
+    let lastPush = 0;
+
     const loop = (now: number) => {
       raf = requestAnimationFrame(loop);
       const canvas = canvasRef.current;
@@ -111,13 +227,23 @@ export default function Stage() {
         // different rate than the timeline.
         const dt = Math.min(0.25, (now - tickRef.current) / 1000);
         tickRef.current = now;
-        t = st.playhead + dt;
+        t = timeRef.current + dt;
 
         if (t >= dur) {
           t = dur;
+          timeRef.current = t;
+          st.setPlayhead(t);
           st.setPlaying(false);
+        } else {
+          timeRef.current = t;
+          // Pushing the playhead into the store re-renders the timeline and
+          // inspector. At 60fps that cost more than drawing the frame did, and
+          // the scrubber reads perfectly smoothly at this rate.
+          if (now - lastPush > 100) {
+            lastPush = now;
+            st.setPlayhead(t);
+          }
         }
-        st.setPlayhead(t);
 
         const hit = sourceAt(st.doc, t);
         if (hit) {
@@ -132,13 +258,14 @@ export default function Stage() {
         }
       } else {
         tickRef.current = now;
+        timeRef.current = t;
       }
 
       const ready = v && v.readyState >= 2 ? v : null;
-      renderFrame(ctx, st.doc, t, ready);
+      renderFrame(ctx, st.doc, t, ready, viewScaleRef.current);
 
       const sel = st.doc.blocks.find((b) => b.id === st.selectedId);
-      if (sel) drawTarget(ctx, st.doc, t, sel.target);
+      if (sel) drawTarget(ctx, st.doc, t, sel.target, viewScaleRef.current);
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
@@ -167,16 +294,34 @@ export default function Stage() {
 
   return (
     <section className="stage">
-      <div className="stage-viewport">
+      <div className="stage-viewport" ref={viewportRef}>
         <canvas
           ref={canvasRef}
           className="stage-canvas"
-          width={output.width}
-          height={output.height}
           style={{ aspectRatio: `${output.width} / ${output.height}` }}
           onClick={onCanvasClick}
         />
-        <video ref={videoRef} className="hidden-video" muted playsInline preload="auto" />
+        <video
+          ref={videoRef}
+          className="hidden-video"
+          muted
+          playsInline
+          preload="auto"
+          // Frames are read back out of the canvas on export. Without this the
+          // canvas is tainted by the cross-origin source and toDataURL throws.
+          crossOrigin="anonymous"
+        />
+
+        {showDiag && diag && (
+          <div className="diag">
+            <div><b>src</b> {diag.src.length > 64 ? "…" + diag.src.slice(-60) : diag.src}</div>
+            <div><b>readyState</b> {diag.ready} {READY_STATE[diag.ready] ?? "?"}</div>
+            <div><b>network</b> {diag.network} {NETWORK_STATE[diag.network] ?? "?"}</div>
+            <div><b>error</b> {diag.error}</div>
+            <div><b>dims</b> {diag.dims} · <b>t</b> {diag.currentTime.toFixed(2)}</div>
+            <div><b>fetch</b> {fetchResult}</div>
+          </div>
+        )}
       </div>
 
       <div className="transport">

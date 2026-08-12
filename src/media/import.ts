@@ -1,4 +1,4 @@
-import { Channel, convertFileSrc, invoke, isTauri } from "@tauri-apps/api/core";
+import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
 import type { Clip } from "../doc/types";
 
 const VIDEO_EXT = ["mp4", "mov", "webm", "mkv", "m4v", "avi"];
@@ -6,6 +6,17 @@ const VIDEO_EXT = ["mp4", "mov", "webm", "mkv", "m4v", "avi"];
 export interface ProxyProgress {
   fraction: number;
   stage: string;
+}
+
+/**
+ * Resolve a path on disk to a URL the webview can play.
+ *
+ * Deliberately not `convertFileSrc`: WebKitGTK decodes media in a separate
+ * process that can't reach the asset protocol's custom scheme, so an
+ * asset:// video never loads at all.
+ */
+export async function mediaUrl(path: string): Promise<string> {
+  return invoke<string>("media_url", { path });
 }
 
 /** Thrown when the webview can't decode a file but ffmpeg probably can. */
@@ -42,6 +53,7 @@ function probe(src: string): Promise<{ duration: number; width: number; height: 
     const v = document.createElement("video");
     v.preload = "metadata";
     v.muted = true;
+    v.crossOrigin = "anonymous";
     v.onloadedmetadata = () => {
       resolve({
         duration: v.duration,
@@ -103,7 +115,7 @@ export async function importRecording(hooks: ImportHooks = {}): Promise<Clip | n
 
   // Fast path: if the webview plays it, use the original and skip transcoding.
   try {
-    const direct = convertFileSrc(picked);
+    const direct = await mediaUrl(picked);
     const meta = await probe(direct);
     return { src: direct, path: picked, name, proxied: false, cursor: null, ...meta };
   } catch (err) {
@@ -118,7 +130,7 @@ export async function importRecording(hooks: ImportHooks = {}): Promise<Clip | n
     onProgress: channel,
   });
 
-  const proxySrc = convertFileSrc(proxyPath);
+  const proxySrc = await mediaUrl(proxyPath);
   const meta = await probe(proxySrc);
   return { src: proxySrc, path: picked, name, proxied: true, cursor: null, ...meta };
 }

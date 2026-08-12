@@ -29,14 +29,14 @@ export function blockProgress(block: Block, t: number): number | null {
     const half = mid - block.start;
     if (half <= 0) return 1;
     const u = t <= mid ? (t - block.start) / half : (block.end - t) / half;
-    return ease(block.ease, u);
+    return ease(block.ease, u, block.bounce);
   }
 
   if (t < inEnd) {
-    return block.rampIn <= 0 ? 1 : ease(block.ease, (t - block.start) / block.rampIn);
+    return block.rampIn <= 0 ? 1 : ease(block.ease, (t - block.start) / block.rampIn, block.bounce);
   }
   if (t > outStart) {
-    return block.rampOut <= 0 ? 1 : ease(block.ease, (block.end - t) / block.rampOut);
+    return block.rampOut <= 0 ? 1 : ease(block.ease, (block.end - t) / block.rampOut, block.bounce);
   }
   return 1;
 }
@@ -64,7 +64,7 @@ function targetOf(doc: Doc, block: Block, t: number): Point {
 
   // Falls back to the fixed target when the track doesn't cover this moment,
   // rather than snapping the camera somewhere arbitrary.
-  return cursorAt(doc.clip, hit.srcTime) ?? block.target;
+  return cursorAt(doc.clip, hit.srcTime, doc.cursorSmoothing) ?? block.target;
 }
 
 /** Solve the camera for a given time. Pure — same input, same frame, always. */

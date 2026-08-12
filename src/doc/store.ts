@@ -19,6 +19,17 @@ export const emptyDoc = (): Doc => ({
     shadowY: 26,
   },
   blocks: [],
+  zoomDefaults: {
+    scale: 1.9,
+    // A push-in wants to feel deliberate. Under about a second of ramp it
+    // reads as a snap rather than a camera move, which was the old default's
+    // problem.
+    duration: 4,
+    ramp: 1.2,
+    ease: "spring",
+    bounce: 0.3,
+  },
+  cursorSmoothing: 0.22,
 });
 
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -97,6 +108,7 @@ interface State {
   removeSegment: (id: string) => void;
 
   patchDoc: (patch: Partial<Doc>) => void;
+  applyZoomStyle: (id: string) => void;
 
   undo: () => void;
   redo: () => void;
@@ -171,11 +183,13 @@ export const useStore = create<State>((set, get) => {
       const span = freeSpan(doc, at);
       if (!span) return null;
 
-      // Aim for a comfortable 2.4s move but shrink to whatever room exists.
-      const end = Math.min(span.end, at + 2.4);
+      const d = doc.zoomDefaults;
+      // Take the preferred length, but shrink to whatever room exists between
+      // neighbouring blocks rather than refusing to place one.
+      const end = Math.min(span.end, at + d.duration);
       const start = Math.max(span.start, Math.min(at, end - 0.6));
       const len = end - start;
-      const ramp = Math.min(0.7, len * 0.35);
+      const ramp = Math.min(d.ramp, len / 2);
 
       const block: ZoomBlock = {
         id: uid(),
@@ -184,10 +198,13 @@ export const useStore = create<State>((set, get) => {
         end,
         rampIn: ramp,
         rampOut: ramp,
-        scale: 2,
+        scale: d.scale,
         target,
-        ease: "spring",
-        followCursor: false,
+        ease: d.ease,
+        bounce: d.bounce,
+        // A clip with a cursor track almost always wants to follow it; that's
+        // the reason for recording in the first place.
+        followCursor: (doc.clip?.cursor?.length ?? 0) > 0,
       };
 
       commit("addZoom", (d) => ({
@@ -331,6 +348,40 @@ export const useStore = create<State>((set, get) => {
 
     patchDoc: (patch) =>
       commit(`patchDoc:${Object.keys(patch).join(",")}`, (d) => ({ ...d, ...patch })),
+
+    /** Push one block's motion onto every other block, and onto the defaults.
+     *  Tuning a move until it feels right and then repeating that by hand for
+     *  every other zoom is the tedious part of this job. */
+    applyZoomStyle: (id) =>
+      commit("applyZoomStyle", (d) => {
+        const src = d.blocks.find((b) => b.id === id);
+        if (!src) return null;
+
+        return {
+          ...d,
+          zoomDefaults: {
+            scale: src.scale,
+            duration: src.end - src.start,
+            ramp: src.rampIn,
+            ease: src.ease,
+            bounce: src.bounce,
+          },
+          blocks: d.blocks.map((b) => {
+            if (b.id === id) return b;
+            // Ramps are clamped per block: a short block can't take a long
+            // ramp without the two overlapping.
+            const half = (b.end - b.start) / 2;
+            return {
+              ...b,
+              scale: src.scale,
+              ease: src.ease,
+              bounce: src.bounce,
+              rampIn: Math.min(src.rampIn, half),
+              rampOut: Math.min(src.rampOut, half),
+            };
+          }),
+        };
+      }),
 
     undo: () => {
       const s = get();

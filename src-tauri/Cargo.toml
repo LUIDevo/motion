@@ -21,6 +21,14 @@ serde_json = "1"
 base64 = "0.22"
 uuid = { version = "1", features = ["v4"] }
 
+# Media is served to the webview over loopback HTTP rather than the asset
+# protocol. WebKitGTK decodes media in a separate process that can't reach a
+# custom URI scheme handler, and HTTP additionally brings correct Range support
+# — which is what makes seeking a large recording cheap.
+axum = "0.8"
+tower-http = { version = "0.6", features = ["fs", "cors"] }
+tower = "0.5"
+
 # Screen capture on Wayland. The compositor never exposes the global cursor
 # position to applications, so the only way to get real cursor coordinates is
 # the ScreenCast portal with its cursor delivered as stream metadata, which
