@@ -45,6 +45,28 @@ function drawTarget(
  *  enough that we aren't seeking every frame during normal playback. */
 const DRIFT_TOLERANCE = 0.2;
 
+/* Inline icons rather than emoji glyphs: emoji render at whatever size and
+ * colour the platform font decides, which is why the old transport controls
+ * looked accidental. */
+const IconStart = () => (
+  <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden>
+    <path d="M4 3.5a.75.75 0 0 1 1.5 0v3.4l5.3-3.3A.75.75 0 0 1 12 4.2v7.6a.75.75 0 0 1-1.2.6L5.5 9.1v3.4a.75.75 0 0 1-1.5 0z" />
+  </svg>
+);
+
+const IconPlay = () => (
+  <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden>
+    <path d="M5 3.6c0-.6.66-.97 1.17-.65l7 4.4a.77.77 0 0 1 0 1.3l-7 4.4A.77.77 0 0 1 5 12.4z" />
+  </svg>
+);
+
+const IconPause = () => (
+  <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden>
+    <rect x="4" y="3" width="3" height="10" rx="1" />
+    <rect x="9" y="3" width="3" height="10" rx="1" />
+  </svg>
+);
+
 const READY_STATE = ["HAVE_NOTHING", "HAVE_METADATA", "HAVE_CURRENT", "HAVE_FUTURE", "HAVE_ENOUGH"];
 const NETWORK_STATE = ["EMPTY", "IDLE", "LOADING", "NO_SOURCE"];
 const MEDIA_ERR = ["", "ABORTED", "NETWORK", "DECODE", "SRC_NOT_SUPPORTED"];
@@ -331,7 +353,7 @@ export default function Stage() {
           disabled={!clip}
           title="Back to start"
         >
-          ⏮
+          <IconStart />
         </button>
         <button
           className="icon-btn primary"
@@ -339,7 +361,7 @@ export default function Stage() {
           disabled={!clip}
           title="Play / pause (space)"
         >
-          {playing ? "⏸" : "▶"}
+          {playing ? <IconPause /> : <IconPlay />}
         </button>
         <span className="timecode">
           {fmtTime(playhead)} <span className="dim">/ {fmtTime(duration)}</span>

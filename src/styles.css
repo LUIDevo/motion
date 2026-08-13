@@ -1,21 +1,95 @@
+/*
+ * Motion — light editor theme.
+ *
+ * The rules this follows, taken from how good tool UIs actually behave:
+ *
+ *  - Space is the main tool. Sections breathe, labels sit well clear of what
+ *    they label, rows are tall enough to scan down a column of them.
+ *  - Hierarchy comes from weight and colour, not size. Almost everything is
+ *    12.5–13px; what changes is how dark it is and how heavy.
+ *  - Values live in soft grey fields. A number floating loose on white reads
+ *    as text; the same number in a field reads as something you can change.
+ *  - Dividers are hairlines. Anything heavier chops the panel into boxes.
+ */
+
 :root {
-  --bg: #e6e6e6;
+  /* A warm off-white rather than cold grey. Neutral greys are what make a
+     tool look like a settings dialog; a little warmth in the paper makes the
+     white panels sit on it rather than disappear into it. */
+  --page: #f4f3f0;
   --panel: #ffffff;
-  --panel-2: #fafafa;
-  --border: #e4e4e4;
-  --border-strong: #d6d6d6;
-  --text: #1a1a1a;
-  --text-dim: #8a8a8a;
-  --accent: #2c60f6;
-  --accent-soft: #e8eeff;
-  --danger: #d8452f;
+
+  /* Fields and other inset surfaces. */
+  --field: #f5f6f7;
+  --field-hover: #eeeff1;
+  --track: #e6e8ea;
+
+  /* Hairline first, then a slightly firmer one for things that must read as
+     an edge rather than a seam. */
+  --line: #f0f1f2;
+  --border: #e4e5e8;
+  --border-strong: #d8dade;
+
+  --text: #17191d;
+  --text-2: #5c626c;
+  --text-3: #9299a3;
+
+  /* Signature: indigo running to violet. One gradient used consistently —
+     primary buttons, active chips, the logo, timeline blocks — is what gives
+     an app a face you'd recognise from across the room. */
+  --accent: #6366f1;
+  --accent-2: #a855f7;
+  --accent-deep: #4f46e5;
+  --grad: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+  --grad-hover: linear-gradient(135deg, #7275f3 0%, #b368f8 100%);
+  --accent-hover: #4f46e5;
+  --accent-soft: #f1f0fe;
+  --accent-line: #d6d4fb;
+
+  /* Springy. Motion in the UI of a motion tool should have some bounce. */
+  --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --danger: #f43f5e;
+  --danger-soft: #fff1f3;
+  --good: #10b981;
+  --good-soft: #ecfdf5;
+
   --r-panel: 14px;
-  --r-ctl: 8px;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.06);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Inter", "Segoe UI",
-    sans-serif;
+  --r-card: 12px;
+  /* Pills. An 8px rectangle is the default every framework ships; a full
+     round instantly reads as someone's choice. */
+  --r-ctl: 999px;
+  --r-field: 9px;
+  --r-sm: 7px;
+
+  --shadow-panel: 0 1px 2px rgba(16, 18, 22, 0.04),
+    0 6px 20px rgba(16, 18, 22, 0.05);
+
+  /*
+   * Controls are lit from above: a faint vertical gradient, a bottom border
+   * a shade darker than the sides, an inset highlight along the top edge, and
+   * a shadow beneath. Any one of these alone looks like a mistake; together
+   * they read as a physical button. A flat fill with a uniform 1px border —
+   * what this had before — reads as a wireframe.
+   */
+  --btn-face: linear-gradient(180deg, #ffffff 0%, #f6f7f9 100%);
+  --btn-face-hover: linear-gradient(180deg, #fafbfc 0%, #eff1f4 100%);
+  --btn-border: #dcdee3;
+  --btn-border-bottom: #c9ccd3;
+  --btn-shadow: 0 1px 1.5px rgba(16, 18, 22, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --btn-shadow-active: inset 0 1px 2.5px rgba(16, 18, 22, 0.13);
+
+  /* system-ui resolves to Noto Sans here, which is what made everything read
+     as unstyled. Adwaita Sans is Inter-derived and ships a full Thin–Black
+     range, so weight can carry hierarchy instead of size. */
+  font-family: "Adwaita Sans", "Inter", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", sans-serif;
   font-size: 13px;
+  line-height: 1.45;
   color: var(--text);
+  letter-spacing: -0.006em;
+  -webkit-font-smoothing: antialiased;
 }
 
 * {
@@ -24,13 +98,13 @@
 
 body {
   margin: 0;
-  background: var(--bg);
+  background: var(--page);
   overflow: hidden;
-  -webkit-font-smoothing: antialiased;
 }
 
 button {
   font: inherit;
+  letter-spacing: inherit;
   color: inherit;
   cursor: pointer;
 }
@@ -43,7 +117,16 @@ button:disabled {
 input,
 select {
   font: inherit;
+  letter-spacing: inherit;
   color: inherit;
+}
+
+.timecode,
+.slider-value,
+.static-value,
+.layer-meta,
+.tick span {
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---------- shell ---------- */
@@ -58,7 +141,7 @@ select {
 
 .body {
   display: grid;
-  grid-template-columns: 224px 1fr 268px;
+  grid-template-columns: 248px 1fr 320px;
   gap: 10px;
   min-height: 0;
 }
@@ -67,9 +150,24 @@ select {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--r-panel);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-panel);
   overflow-y: auto;
   min-height: 0;
+}
+
+.panel::-webkit-scrollbar {
+  width: 11px;
+}
+.panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+.panel::-webkit-scrollbar-thumb {
+  background: #d6d8dc;
+  border: 3.5px solid var(--panel);
+  border-radius: 999px;
+}
+.panel::-webkit-scrollbar-thumb:hover {
+  background: #c2c5cb;
 }
 
 /* ---------- topbar ---------- */
@@ -82,7 +180,7 @@ select {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--r-panel);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-panel);
 }
 
 .brand {
@@ -92,37 +190,41 @@ select {
 }
 
 .logo {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   border-radius: 6px;
-  background: linear-gradient(135deg, var(--accent), #7aa0ff);
+  background: linear-gradient(140deg, var(--accent), #7b5cf5);
 }
 
 .brand-name {
+  font-size: 14px;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
 }
 
 .doc-title {
   font-weight: 500;
+  color: var(--text-2);
 }
 
 .dim {
-  color: var(--text-dim);
+  color: var(--text-3);
+  font-weight: 400;
 }
 
 .topbar-right {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 7px;
 }
 
 .status {
   font-size: 12px;
-  padding: 4px 9px;
+  font-weight: 500;
+  padding: 4px 10px;
   border-radius: 999px;
-  max-width: 320px;
+  max-width: 300px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -133,157 +235,496 @@ select {
   color: var(--accent);
 }
 .status.done {
-  background: #e7f6ec;
-  color: #1a7f3c;
+  background: var(--good-soft);
+  color: var(--good);
 }
 .status.error {
-  background: #fdecea;
+  background: var(--danger-soft);
   color: var(--danger);
 }
+.status.rec {
+  background: var(--danger);
+  color: #fff;
+}
+
+.status.rec::before {
+  content: "● ";
+  animation: rec-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes rec-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+/* ---------- buttons ---------- */
 
 .primary-btn {
-  background: var(--accent);
+  background: linear-gradient(180deg, #4d7bf9 0%, #2c60f6 100%);
   color: #fff;
-  border: none;
+  border: 1px solid #2350d4;
   border-radius: var(--r-ctl);
-  padding: 7px 15px;
-  font-weight: 500;
+  padding: 6px 16px;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: -0.008em;
+  /* The coloured glow is what separates a primary action from a blue
+     rectangle — it makes the button sit above the surface. */
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.26),
+    0 1px 2px rgba(16, 18, 22, 0.14), 0 3px 10px rgba(44, 96, 246, 0.28);
+  transition: filter 0.12s ease, box-shadow 0.12s ease;
 }
 
 .primary-btn:hover:not(:disabled) {
-  background: #2453d8;
+  filter: brightness(1.06);
+}
+
+.primary-btn:active:not(:disabled) {
+  filter: brightness(0.96);
+  box-shadow: inset 0 1px 3px rgba(16, 18, 22, 0.22);
+}
+
+/* Blanket opacity on a gradient makes a disabled button look broken rather
+   than unavailable. Flattening it to a grey face reads as intentional. */
+.primary-btn:disabled {
+  opacity: 1;
+  background: #eceef1;
+  border-color: #dfe1e6;
+  color: #a8adb7;
+  box-shadow: none;
 }
 
 .ghost {
-  background: transparent;
-  border: 1px solid var(--border-strong);
+  background: var(--btn-face);
+  border: 1px solid var(--btn-border);
+  border-bottom-color: var(--btn-border-bottom);
   border-radius: var(--r-ctl);
   padding: 6px 13px;
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: -0.008em;
+  color: var(--text);
+  box-shadow: var(--btn-shadow);
+  transition: background 0.12s ease, box-shadow 0.12s ease;
 }
 
 .ghost:hover:not(:disabled) {
-  background: var(--panel-2);
+  background: var(--btn-face-hover);
+}
+
+.ghost:active:not(:disabled) {
+  background: #eef0f3;
+  box-shadow: var(--btn-shadow-active);
 }
 
 .ghost.danger {
   border-color: transparent;
+  background: transparent;
   color: var(--danger);
-  padding: 4px 8px;
+  padding: 4px 9px;
+  font-weight: 500;
+  box-shadow: none;
 }
 
-/* ---------- panels ---------- */
+.ghost.danger:active:not(:disabled) {
+  background: var(--danger-soft);
+  box-shadow: none;
+}
+
+.ghost.danger:hover:not(:disabled) {
+  background: var(--danger-soft);
+}
+
+.rec-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--btn-face);
+  border: 1px solid var(--btn-border);
+  border-bottom-color: var(--btn-border-bottom);
+  border-radius: var(--r-ctl);
+  padding: 6px 13px;
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: -0.008em;
+  color: var(--text);
+  box-shadow: var(--btn-shadow);
+  transition: background 0.12s ease, box-shadow 0.12s ease;
+}
+
+.rec-btn::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+}
+
+.rec-btn::before {
+  box-shadow: 0 0 0 2.5px rgba(224, 72, 60, 0.16);
+}
+
+.rec-btn:hover:not(:disabled) {
+  background: var(--btn-face-hover);
+}
+
+.rec-btn:active:not(:disabled) {
+  box-shadow: var(--btn-shadow-active);
+}
+
+.rec-btn.active {
+  background: linear-gradient(180deg, #e85b4f 0%, #d93f33 100%);
+  border-color: #c4362b;
+  color: #fff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 1px 2px rgba(16, 18, 22, 0.14), 0 3px 10px rgba(224, 72, 60, 0.3);
+}
+
+.rec-btn.active::before {
+  box-shadow: none;
+}
+
+.rec-btn.active::before {
+  border-radius: 2px;
+  background: #fff;
+}
+
+.icon-btn {
+  background: var(--btn-face);
+  border: 1px solid var(--btn-border);
+  border-bottom-color: var(--btn-border-bottom);
+  border-radius: var(--r-ctl);
+  width: 30px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  color: var(--text-2);
+  padding: 0;
+  box-shadow: var(--btn-shadow);
+  transition: background 0.12s ease, box-shadow 0.12s ease;
+}
+
+.icon-btn:hover:not(:disabled) {
+  background: var(--btn-face-hover);
+  color: var(--text);
+}
+
+.icon-btn:active:not(:disabled) {
+  box-shadow: var(--btn-shadow-active);
+}
+
+.icon-btn.primary {
+  background: linear-gradient(180deg, #4d7bf9 0%, #2c60f6 100%);
+  border-color: #2350d4;
+  color: #fff;
+  width: 32px;
+  height: 30px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.26),
+    0 1px 2px rgba(16, 18, 22, 0.14), 0 3px 9px rgba(44, 96, 246, 0.26);
+}
+
+.icon-btn.primary:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.icon-btn svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+
+.wide-btn {
+  width: 100%;
+  background: var(--field);
+  border: 1px solid transparent;
+  border-radius: var(--r-ctl);
+  padding: 8px 12px;
+  font-weight: 500;
+  color: var(--text-2);
+  text-align: left;
+}
+
+.wide-btn:hover:not(:disabled) {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.mini {
+  background: var(--btn-face);
+  border: 1px solid var(--btn-border);
+  border-bottom-color: var(--btn-border-bottom);
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  padding: 3px 10px;
+  box-shadow: var(--btn-shadow);
+}
+
+.mini:hover:not(:disabled) {
+  background: var(--btn-face-hover);
+}
+
+.mini:active:not(:disabled) {
+  box-shadow: var(--btn-shadow-active);
+}
+
+/* ---------- panel structure ---------- */
 
 .panel-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 14px 4px;
+  padding: 18px 20px 4px;
 }
 
 .panel-head h2 {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
+  letter-spacing: -0.02em;
   margin: 0;
 }
 
 .section {
-  padding: 10px 14px 14px;
-  border-bottom: 1px solid var(--border);
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--line);
 }
 
 .section:last-child {
   border-bottom: none;
 }
 
+/*
+ * Micro-labels need real distance from their content. Cramming them up
+ * against the first row is what makes a settings panel look like a form
+ * dump rather than a designed surface.
+ */
 .section-title {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: var(--text-dim);
-  margin-bottom: 8px;
+  color: var(--text-3);
+  margin-bottom: 14px;
 }
 
 .note {
-  color: var(--text-dim);
+  color: var(--text-3);
   font-size: 12px;
-  margin: 8px 0 0;
-  line-height: 1.45;
+  margin: 14px 0 0;
+  line-height: 1.55;
 }
+
+/* ---------- form rows ---------- */
 
 .row {
   display: grid;
-  grid-template-columns: 62px 1fr;
+  grid-template-columns: 74px 1fr;
   align-items: center;
-  gap: 8px;
-  min-height: 28px;
+  gap: 12px;
+  min-height: 34px;
 }
 
 .row-label {
-  color: var(--text-dim);
+  color: var(--text-2);
+  font-size: 12.5px;
 }
 
 .row-control {
   display: flex;
   justify-content: flex-end;
   align-items: center;
+  min-width: 0;
 }
 
 .static-value {
-  color: var(--text-dim);
-  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  font-weight: 500;
+  font-size: 12.5px;
 }
 
 select {
-  background: var(--panel-2);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 4px 6px;
+  appearance: none;
+  background: var(--field);
+  border: 1px solid transparent;
+  border-radius: var(--r-ctl);
+  padding: 7px 28px 7px 10px;
   width: 100%;
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 500;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.75L6 7.75L9 4.75' stroke='%239299a3' stroke-width='1.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+  background-size: 12px;
+}
+
+select:hover {
+  background-color: var(--field-hover);
+}
+
+select:focus-visible {
+  outline: none;
+  border-color: var(--accent-line);
 }
 
 input[type="color"] {
-  width: 42px;
-  height: 24px;
+  width: 44px;
+  height: 26px;
   padding: 0;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: none;
+  cursor: pointer;
 }
+
+input[type="checkbox"] {
+  appearance: none;
+  width: 17px;
+  height: 17px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 5px;
+  background: var(--panel);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  margin: 0;
+}
+
+input[type="checkbox"]:hover:not(:disabled) {
+  border-color: var(--text-3);
+}
+
+input[type="checkbox"]:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+input[type="checkbox"]:checked::after {
+  content: "";
+  width: 9px;
+  height: 4.5px;
+  border-left: 1.8px solid #fff;
+  border-bottom: 1.8px solid #fff;
+  transform: rotate(-45deg) translate(0.5px, -1px);
+}
+
+input[type="checkbox"]:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ---------- sliders ---------- */
 
 .slider {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
+  min-width: 0;
 }
 
+/*
+ * The filled portion is a gradient stop driven by --pct from the component:
+ * WebKit has no progress pseudo-element for range inputs, so there is no
+ * CSS-only way to show how far along the value sits.
+ */
 .slider input[type="range"] {
+  appearance: none;
   flex: 1;
   min-width: 0;
-  accent-color: var(--accent);
+  height: 18px;
+  background: transparent;
+  margin: 0;
+  cursor: pointer;
 }
 
-.slider-value {
-  width: 48px;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-dim);
+.slider input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--accent) 0%,
+    var(--accent) var(--pct, 0%),
+    var(--track) var(--pct, 0%),
+    var(--track) 100%
+  );
 }
+
+.slider input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 13px;
+  height: 13px;
+  margin-top: -4.5px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 1px 2px rgba(16, 18, 22, 0.18);
+  transition: transform 0.1s ease;
+}
+
+.slider input[type="range"]:hover::-webkit-slider-thumb {
+  transform: scale(1.12);
+  border-color: var(--accent);
+}
+
+.slider input[type="range"]::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--track);
+}
+
+.slider input[type="range"]::-moz-range-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.slider input[type="range"]::-moz-range-thumb {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid var(--border-strong);
+}
+
+/* A number in a field reads as editable; the same number loose on white
+   reads as a caption. */
+.slider-value {
+  min-width: 54px;
+  padding: 4px 8px;
+  border-radius: var(--r-sm);
+  background: var(--field);
+  text-align: right;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* ---------- swatches & chips ---------- */
 
 .swatches {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
-  gap: 5px;
-  margin-bottom: 10px;
+  gap: 6px;
+  margin-bottom: 16px;
 }
 
 .swatch {
   aspect-ratio: 1;
-  border-radius: 6px;
-  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: var(--r-sm);
+  border: 1px solid rgba(16, 18, 22, 0.1);
   padding: 0;
   outline-offset: 2px;
+}
+
+.swatch:hover {
+  border-color: rgba(16, 18, 22, 0.3);
 }
 
 .swatch.selected {
@@ -293,37 +734,31 @@ input[type="color"] {
 .chips {
   display: flex;
   gap: 5px;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 
 .chip {
   flex: 1;
-  background: var(--panel-2);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 4px 0;
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
+  background: var(--field);
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  padding: 6px 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-2);
+}
+
+.chip:hover:not(.selected) {
+  background: var(--field-hover);
+  color: var(--text);
 }
 
 .chip.selected {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: linear-gradient(180deg, #4d7bf9 0%, #2c60f6 100%);
+  border-color: #2350d4;
   color: #fff;
-}
-
-.mini {
-  background: var(--panel);
-  border: 1px solid var(--border-strong);
-  border-radius: 6px;
-  font-size: 11px;
-  padding: 2px 9px;
-}
-
-.mini:hover:not(:disabled) {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-  color: var(--accent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 1px 2px rgba(44, 96, 246, 0.22);
 }
 
 /* ---------- library ---------- */
@@ -341,41 +776,46 @@ input[type="color"] {
   display: block;
   width: 100%;
   text-align: left;
-  background: var(--panel-2);
+  background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 8px 10px;
-  margin-bottom: 6px;
+  border-radius: var(--r-card);
+  padding: 11px 13px;
+  margin-bottom: 7px;
 }
 
 .effect:hover:not(:disabled) {
-  border-color: var(--accent);
+  border-color: var(--accent-line);
   background: var(--accent-soft);
 }
 
 .effect-name {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-weight: 500;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
 }
 
 .effect-desc {
   display: block;
-  color: var(--text-dim);
-  font-size: 11px;
-  margin-top: 2px;
-  line-height: 1.35;
+  color: var(--text-3);
+  font-size: 12px;
+  margin-top: 3px;
+  line-height: 1.45;
 }
 
 .soon {
-  font-size: 9px;
+  margin-left: auto;
+  font-size: 9.5px;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  background: #ececec;
-  color: var(--text-dim);
+  background: var(--field);
+  color: var(--text-3);
   border-radius: 4px;
-  padding: 1px 4px;
+  padding: 2px 5px;
 }
 
 .layer-list {
@@ -388,27 +828,32 @@ input[type="color"] {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 10px;
   width: 100%;
   background: none;
   border: 1px solid transparent;
-  border-radius: 8px;
-  padding: 6px 8px;
+  border-radius: var(--r-ctl);
+  padding: 8px 10px;
   text-align: left;
+  color: var(--text-2);
+  font-weight: 500;
 }
 
 .layer:hover {
-  background: var(--panel-2);
+  background: var(--field);
+  color: var(--text);
 }
 
 .layer.selected {
   background: var(--accent-soft);
-  border-color: var(--accent);
+  border-color: var(--accent-line);
+  color: var(--text);
 }
 
 .layer-meta {
-  color: var(--text-dim);
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 400;
 }
 
 /* ---------- stage ---------- */
@@ -430,8 +875,8 @@ input[type="color"] {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--r-panel);
-  box-shadow: var(--shadow);
-  padding: 18px;
+  box-shadow: var(--shadow-panel);
+  padding: 22px;
   overflow: hidden;
 }
 
@@ -440,15 +885,9 @@ input[type="color"] {
   max-height: 100%;
   border-radius: 6px;
   cursor: crosshair;
+  box-shadow: 0 2px 10px rgba(16, 18, 22, 0.09);
 }
 
-/*
- * The source video is never shown directly — every frame reaches the screen
- * through the canvas compositor. It must still stay in the render tree
- * though: `display: none` removes it, and WebKit then stops decoding frames
- * for it, so drawImage silently draws nothing and readyState never advances.
- * One transparent pixel keeps it live at no visual cost.
- */
 .hidden-video {
   position: absolute;
   top: 0;
@@ -462,86 +901,95 @@ input[type="color"] {
 .transport {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   padding: 0 14px;
-  height: 42px;
+  height: 44px;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--r-panel);
-  box-shadow: var(--shadow);
-}
-
-.icon-btn {
-  background: transparent;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--r-ctl);
-  width: 30px;
-  height: 26px;
-  display: grid;
-  place-items: center;
-  font-size: 11px;
-}
-
-.icon-btn.primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
+  box-shadow: var(--shadow-panel);
 }
 
 .timecode {
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
+  font-size: 12.5px;
+  font-weight: 500;
 }
 
 .hint {
   margin-left: auto;
-  color: var(--text-dim);
+  color: var(--text-3);
   font-size: 12px;
+}
+
+.diag {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 5;
+  background: rgba(23, 25, 29, 0.94);
+  color: #dfe3ea;
+  font-family: ui-monospace, "SF Mono", monospace;
+  font-size: 10.5px;
+  line-height: 1.6;
+  padding: 8px 10px;
+  border-radius: var(--r-ctl);
+  max-width: 90%;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.diag b {
+  color: #8fb0ff;
+  font-weight: 600;
 }
 
 /* ---------- timeline ---------- */
 
 .timeline {
   display: grid;
-  grid-template-columns: 110px 1fr;
+  grid-template-columns: 120px 1fr;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--r-panel);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-panel);
   overflow: hidden;
 }
 
 .track-labels {
-  border-right: 1px solid var(--border);
-  background: var(--panel-2);
+  border-right: 1px solid var(--line);
   display: flex;
   flex-direction: column;
 }
 
 .ruler-spacer {
-  height: 26px;
-  border-bottom: 1px solid var(--border);
+  height: 30px;
+  border-bottom: 1px solid var(--line);
   display: flex;
   align-items: center;
-  justify-content: center;
+  padding-left: 14px;
 }
 
 .track-label {
-  height: 52px;
+  height: 54px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   padding: 0 14px;
-  color: var(--text-dim);
-  font-size: 12px;
-  border-bottom: 1px solid var(--border);
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  border-bottom: 1px solid var(--line);
 }
 
 .count {
-  background: #ececec;
+  background: var(--field);
+  color: var(--text-3);
   border-radius: 999px;
-  padding: 0 6px;
+  padding: 1px 6px;
   font-size: 10px;
+  letter-spacing: 0;
 }
 
 .track-area {
@@ -552,8 +1000,8 @@ input[type="color"] {
 
 .ruler {
   position: relative;
-  height: 26px;
-  border-bottom: 1px solid var(--border);
+  height: 30px;
+  border-bottom: 1px solid var(--line);
   cursor: text;
   overflow: hidden;
 }
@@ -562,17 +1010,16 @@ input[type="color"] {
   position: absolute;
   top: 0;
   bottom: 0;
-  border-left: 1px solid var(--border);
-  padding-left: 4px;
+  border-left: 1px solid var(--line);
+  padding-left: 6px;
   display: flex;
   align-items: center;
   pointer-events: none;
 }
 
 .tick span {
-  font-size: 10px;
-  color: var(--text-dim);
-  font-variant-numeric: tabular-nums;
+  font-size: 10.5px;
+  color: var(--text-3);
 }
 
 .lanes {
@@ -582,14 +1029,14 @@ input[type="color"] {
 }
 
 .lane {
-  height: 52px;
-  border-bottom: 1px solid var(--border);
+  height: 54px;
+  border-bottom: 1px solid var(--line);
   position: relative;
-  padding: 8px;
+  padding: 9px;
 }
 
 .lane-empty {
-  color: var(--text-dim);
+  color: var(--text-3);
   font-size: 12px;
   line-height: 36px;
   padding-left: 4px;
@@ -597,16 +1044,17 @@ input[type="color"] {
 
 .clip-bar {
   position: absolute;
-  top: 8px;
-  bottom: 8px;
-  border-radius: 8px;
-  background: linear-gradient(180deg, #f2f5ff, #e6ecff);
-  border: 1px solid #cfd9ff;
+  top: 9px;
+  bottom: 9px;
+  border-radius: var(--r-ctl);
+  background: #eef2ff;
+  border: 1px solid #d5deff;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 12px;
-  color: #3b4b7a;
+  font-weight: 500;
+  color: #3a4a7d;
   overflow: hidden;
   white-space: nowrap;
   cursor: pointer;
@@ -620,7 +1068,7 @@ input[type="color"] {
 }
 
 .clip-name {
-  padding: 0 12px;
+  padding: 0 14px;
   overflow: hidden;
   text-overflow: ellipsis;
   pointer-events: none;
@@ -632,36 +1080,33 @@ input[type="color"] {
   color: var(--accent);
 }
 
-.zoom-lane {
-  background: repeating-linear-gradient(
-    90deg,
-    transparent 0 39px,
-    var(--border) 39px 40px
-  );
-}
-
 .block {
   position: absolute;
-  top: 8px;
-  bottom: 8px;
+  top: 9px;
+  bottom: 9px;
   background: var(--accent-soft);
-  border: 1px solid var(--accent);
-  border-radius: 8px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-ctl);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: grab;
   user-select: none;
-  min-width: 14px;
+  min-width: 12px;
   overflow: hidden;
+}
+
+.block:hover {
+  border-color: var(--accent);
 }
 
 .block.selected {
   background: var(--accent);
+  border-color: var(--accent);
 }
 
 .block-label {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--accent);
   pointer-events: none;
@@ -675,7 +1120,7 @@ input[type="color"] {
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 8px;
+  width: 9px;
   cursor: ew-resize;
 }
 
@@ -691,91 +1136,17 @@ input[type="color"] {
   top: 0;
   bottom: 0;
   width: 0;
-  border-left: 2px solid var(--danger);
+  border-left: 1.5px solid var(--danger);
   pointer-events: none;
+  z-index: 3;
 }
 
 .playhead-grip {
   position: absolute;
-  top: -4px;
-  left: -5px;
+  top: -3px;
+  left: -4.5px;
   width: 8px;
   height: 8px;
   border-radius: 50%;
   background: var(--danger);
-}
-
-.rec-btn {
-  background: transparent;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--r-ctl);
-  padding: 6px 13px;
-  color: var(--danger);
-  font-weight: 500;
-}
-
-.rec-btn:hover:not(:disabled) {
-  background: #fdecea;
-  border-color: var(--danger);
-}
-
-.rec-btn.active {
-  background: var(--danger);
-  border-color: var(--danger);
-  color: #fff;
-}
-
-.status.rec {
-  background: var(--danger);
-  color: #fff;
-}
-
-/* Pulses so a running capture is unmistakable at a glance. */
-.status.rec::before {
-  content: "● ";
-  animation: rec-pulse 1.4s ease-in-out infinite;
-}
-
-@keyframes rec-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.25; }
-}
-
-/* Temporary instrumentation: reports the source element's real state, since
-   a canvas that draws nothing looks identical whatever the cause. */
-.diag {
-  position: absolute;
-  left: 10px;
-  bottom: 10px;
-  z-index: 5;
-  background: rgba(20, 22, 26, 0.9);
-  color: #d8dee9;
-  font-family: ui-monospace, monospace;
-  font-size: 10px;
-  line-height: 1.5;
-  padding: 7px 9px;
-  border-radius: 8px;
-  max-width: 90%;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.diag b {
-  color: #7aa0ff;
-  font-weight: 600;
-}
-
-.wide-btn {
-  width: 100%;
-  background: var(--panel-2);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--r-ctl);
-  padding: 6px 10px;
-  margin-bottom: 2px;
-}
-
-.wide-btn:hover:not(:disabled) {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-  color: var(--accent);
 }

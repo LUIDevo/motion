@@ -28,6 +28,11 @@ function Slider({
   suffix?: string;
   onChange: (v: number) => void;
 }) {
+  // WebKit has no progress pseudo-element for range inputs, so how far along
+  // the value sits has to be handed to CSS as a custom property.
+  const pct = max > min ? ((value - min) / (max - min)) * 100 : 0;
+  const decimals = step >= 1 ? 0 : step >= 0.1 ? 1 : 2;
+
   return (
     <span className="slider">
       <input
@@ -36,10 +41,11 @@ function Slider({
         max={max}
         step={step}
         value={value}
+        style={{ "--pct": `${pct}%` } as React.CSSProperties}
         onChange={(e) => onChange(parseFloat(e.target.value))}
       />
       <span className="slider-value">
-        {value.toFixed(step < 1 ? 2 : 0)}
+        {value.toFixed(decimals)}
         {suffix}
       </span>
     </span>

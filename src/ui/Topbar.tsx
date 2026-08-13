@@ -5,6 +5,20 @@ import { importRecording } from "../media/import";
 import { exportVideo, pickExportPath } from "../media/export";
 import { startRecording, stopRecording } from "../media/record";
 
+const IconUndo = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+    <path d="M6 4.5H9.5a3.5 3.5 0 0 1 0 7H5" strokeLinecap="round" />
+    <path d="M7.5 2.5 5 4.5l2.5 2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const IconRedo = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+    <path d="M10 4.5H6.5a3.5 3.5 0 0 0 0 7H11" strokeLinecap="round" />
+    <path d="M8.5 2.5 11 4.5l-2.5 2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
 type Status =
   | { kind: "idle" }
   | { kind: "busy"; label: string; pct: number }
@@ -167,7 +181,7 @@ export default function Topbar() {
           disabled={!canUndo}
           title="Undo (Ctrl+Z)"
         >
-          ↶
+          <IconUndo />
         </button>
         <button
           className="icon-btn"
@@ -175,7 +189,7 @@ export default function Topbar() {
           disabled={!canRedo}
           title="Redo (Ctrl+Shift+Z)"
         >
-          ↷
+          <IconRedo />
         </button>
 
         <button className="ghost" onClick={onCursorProbe} title="Test cursor tracking">
@@ -186,7 +200,7 @@ export default function Topbar() {
           onClick={onRecord}
           title={recording ? "Stop recording" : "Record the screen"}
         >
-          {recording ? "■ Stop" : "● Record"}
+          {recording ? "Stop" : "Record"}
         </button>
         <button className="ghost" onClick={onImport}>
           Import

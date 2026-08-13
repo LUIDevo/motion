@@ -342,11 +342,15 @@ pub async fn stop_recording(state: State<'_, RecorderState>) -> Result<Recording
     let elapsed = started.elapsed().as_secs_f64();
 
     // SIGINT rather than kill: with `-e` this makes gst-launch flush EOS
-    // through the muxer so the WebM gets a usable index.
+    // through the muxer so the container gets a usable index.
     unsafe { libc::kill(child.id() as i32, libc::SIGINT) };
-    let _ = child.wait().map_err(|e| e.to_string())?;
 
+    // Stop tracking at the same instant capture is told to stop, *before*
+    // waiting for the encoder to drain. Otherwise the track keeps growing
+    // through shutdown and no longer covers the same span as the video.
     let samples = tracker.stop();
+
+    let _ = child.wait().map_err(|e| e.to_string())?;
 
     let (width, height) = probe_dimensions(&video_path).unwrap_or((
         (monitor.width as f32 * monitor.scale) as u32,
@@ -362,12 +366,25 @@ pub async fn stop_recording(state: State<'_, RecorderState>) -> Result<Recording
     let sx = if mon_w > 0.0 { width as f32 / mon_w } else { 1.0 };
     let sy = if mon_h > 0.0 { height as f32 / mon_h } else { 1.0 };
 
+    // Cursor tracking begins the moment recording is requested, but the first
+    // video frame only arrives after the portal handshake and pipeline
+    // negotiation — often more than half a second later. Both stop together,
+    // so whatever the track is longer by is exactly that startup lead, and
+    // leaving it in would put every follow-cursor target ahead of where the
+    // pointer actually is on screen.
+    let captured_for_sync = probe_duration(&video_path).unwrap_or(elapsed);
+    let lead = (elapsed - captured_for_sync).max(0.0);
+
     let scaled: Vec<_> = samples
         .into_iter()
-        .map(|s| crate::cursor::CursorSample {
-            t: s.t,
-            x: s.x * sx,
-            y: s.y * sy,
+        .filter_map(|s| {
+            let t = s.t - lead;
+            // Samples from before the first frame have nothing to line up with.
+            (t >= 0.0).then_some(crate::cursor::CursorSample {
+                t,
+                x: s.x * sx,
+                y: s.y * sy,
+            })
         })
         .collect();
 
