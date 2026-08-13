@@ -2,55 +2,13 @@ import { useStore } from "../doc/store";
 import { segmentLength } from "../doc/time";
 import { EASE_NAMES } from "../render/easing";
 import { PRESETS, backgroundCss, sameBackground } from "../render/backgrounds";
+import { EaseCurve, Field, Field2, Section } from "./controls";
 import type { Background } from "../doc/types";
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="row">
-      <span className="row-label">{label}</span>
-      <span className="row-control">{children}</span>
-    </label>
-  );
-}
-
-function Slider({
-  value,
-  min,
-  max,
-  step,
-  suffix,
-  onChange,
-}: {
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  suffix?: string;
-  onChange: (v: number) => void;
-}) {
-  // WebKit has no progress pseudo-element for range inputs, so how far along
-  // the value sits has to be handed to CSS as a custom property.
-  const pct = max > min ? ((value - min) / (max - min)) * 100 : 0;
-  const decimals = step >= 1 ? 0 : step >= 0.1 ? 1 : 2;
-
-  return (
-    <span className="slider">
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        style={{ "--pct": `${pct}%` } as React.CSSProperties}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
-      />
-      <span className="slider-value">
-        {value.toFixed(decimals)}
-        {suffix}
-      </span>
-    </span>
-  );
-}
+const MAUVE = "#8839ef";
+const BLUE = "#1e66f5";
+const TEAL = "#179299";
+const PEACH = "#fe640b";
 
 function ZoomPanel({ id }: { id: string }) {
   const block = useStore((s) => s.doc.blocks.find((b) => b.id === id))!;
@@ -66,128 +24,110 @@ function ZoomPanel({ id }: { id: string }) {
   return (
     <>
       <div className="panel-head">
-        <h2>Zoom</h2>
+        <div>
+          <h2>Zoom</h2>
+          <span className="panel-sub">
+            {block.start.toFixed(1)}s → {block.end.toFixed(1)}s · {len.toFixed(1)}s
+          </span>
+        </div>
         <button className="ghost danger" onClick={() => remove(id)}>
           Delete
         </button>
       </div>
 
-      <div className="section">
-        <Row label="Scale">
-          <Slider
-            value={block.scale}
-            min={1}
-            max={6}
-            step={0.05}
-            suffix="×"
-            onChange={(v) => update(id, { scale: v })}
-          />
-        </Row>
-        <Row label="Easing">
-          <select
-            value={block.ease}
-            onChange={(e) => update(id, { ease: e.target.value as never })}
-          >
-            {EASE_NAMES.map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
-        </Row>
-        {block.ease === "spring" && (
-          <Row label="Bounce">
-            <Slider
-              value={block.bounce}
-              min={0}
-              max={1}
-              step={0.05}
-              onChange={(v) => update(id, { bounce: v })}
-            />
-          </Row>
-        )}
-        <Row label="Ramp in">
-          <Slider
-            value={Math.min(block.rampIn, maxRamp)}
-            min={0}
-            max={maxRamp}
-            step={0.05}
-            suffix="s"
-            onChange={(v) => update(id, { rampIn: v })}
-          />
-        </Row>
-        <Row label="Ramp out">
-          <Slider
-            value={Math.min(block.rampOut, maxRamp)}
-            min={0}
-            max={maxRamp}
-            step={0.05}
-            suffix="s"
-            onChange={(v) => update(id, { rampOut: v })}
-          />
-        </Row>
-      </div>
+      <Section title="Camera" accent={MAUVE}>
+        <Field
+          label="Scale"
+          value={block.scale}
+          min={1}
+          max={6}
+          step={0.05}
+          suffix="×"
+          onChange={(v) => update(id, { scale: v })}
+        />
 
-      <div className="section">
-        <div className="section-title">Target</div>
-        <Row label="Follow">
-          <input
-            type="checkbox"
-            checked={block.followCursor}
+        {/* The target is a place on the frame, so it's picked on the frame. */}
+        <Field2 label="Target" hint={block.followCursor ? "cursor" : "fixed"}>
+          <button
+            className={`toggle${block.followCursor ? " on" : ""}`}
             disabled={!hasCursor}
-            onChange={(e) => update(id, { followCursor: e.target.checked })}
+            onClick={() => update(id, { followCursor: !block.followCursor })}
             title={
               hasCursor
                 ? "Track the recorded cursor"
-                : "Only available on clips recorded in Motion — imported video carries no cursor track"
+                : "Only clips recorded in Motion carry a cursor track"
             }
-          />
-        </Row>
-        <Row label="X">
-          <Slider
-            value={block.target.x}
-            min={0}
-            max={1}
-            step={0.005}
-            onChange={(v) => update(id, { target: { ...block.target, x: v } })}
-          />
-        </Row>
-        <Row label="Y">
-          <Slider
-            value={block.target.y}
-            min={0}
-            max={1}
-            step={0.005}
-            onChange={(v) => update(id, { target: { ...block.target, y: v } })}
-          />
-        </Row>
-        <p className="note">
-          {block.followCursor
-            ? "The camera tracks the recorded cursor, smoothed. X and Y are the fallback for moments the track doesn't cover."
-            : hasCursor
-              ? "Scrub into the block and click the preview to re-aim it, or turn on Follow."
-              : "Scrub into the block and click the preview to re-aim it."}
-        </p>
-      </div>
+          >
+            <span className="toggle-knob" />
+            <span>Follow the cursor</span>
+          </button>
+          <p className="note">
+            {block.followCursor
+              ? "The camera tracks the recorded pointer, smoothed."
+              : "Scrub into this block and click the preview to aim it."}
+          </p>
+        </Field2>
+      </Section>
 
-      <div className="section">
-        <div className="section-title">Timing</div>
+      <Section title="Motion" accent={PEACH}>
+        {/* Seeing the curve is the point: this app is about how movement
+            feels, and a dropdown alone can't tell you that. */}
+        <EaseCurve name={block.ease} bounce={block.bounce} />
+
+        <div className="ease-picker">
+          {EASE_NAMES.map((n) => (
+            <button
+              key={n}
+              className={`ease-chip${block.ease === n ? " selected" : ""}`}
+              onClick={() => update(id, { ease: n })}
+            >
+              {n}
+            </button>
+          ))}
+        </div>
+
+        {block.ease === "spring" && (
+          <Field
+            label="Bounce"
+            value={block.bounce}
+            min={0}
+            max={1}
+            step={0.05}
+            onChange={(v) => update(id, { bounce: v })}
+          />
+        )}
+        <Field
+          label="Ramp in"
+          value={Math.min(block.rampIn, maxRamp)}
+          min={0}
+          max={maxRamp}
+          step={0.05}
+          suffix="s"
+          onChange={(v) => update(id, { rampIn: v })}
+        />
+        <Field
+          label="Ramp out"
+          value={Math.min(block.rampOut, maxRamp)}
+          min={0}
+          max={maxRamp}
+          step={0.05}
+          suffix="s"
+          onChange={(v) => update(id, { rampOut: v })}
+        />
+      </Section>
+
+      <Section title="Apply" accent={TEAL} defaultOpen={false}>
         <button className="wide-btn" onClick={() => applyToAll(id)}>
           Use this zoom's feel everywhere
+        </button>
+        <button className="wide-btn" onClick={() => setPlayhead(block.start)}>
+          Jump to start
         </button>
         <p className="note">
           Copies scale, easing, bounce and ramps onto every other zoom, and
           makes them the default for new ones.
         </p>
-        <Row label="Start">
-          <button className="ghost" onClick={() => setPlayhead(block.start)}>
-            {block.start.toFixed(2)}s
-          </button>
-        </Row>
-        <Row label="Length">
-          <span className="static-value">{len.toFixed(2)}s</span>
-        </Row>
-      </div>
+      </Section>
     </>
   );
 }
@@ -203,7 +143,12 @@ function SegmentPanel({ id }: { id: string }) {
   return (
     <>
       <div className="panel-head">
-        <h2>Clip</h2>
+        <div>
+          <h2>Clip</h2>
+          <span className="panel-sub">
+            {seg.srcStart.toFixed(2)}s → {seg.srcEnd.toFixed(2)}s of source
+          </span>
+        </div>
         <button
           className="ghost danger"
           onClick={() => remove(id)}
@@ -214,8 +159,7 @@ function SegmentPanel({ id }: { id: string }) {
         </button>
       </div>
 
-      <div className="section">
-        <div className="section-title">Speed</div>
+      <Section title="Speed" accent={BLUE}>
         <div className="chips">
           {SPEEDS.map((v) => (
             <button
@@ -227,35 +171,51 @@ function SegmentPanel({ id }: { id: string }) {
             </button>
           ))}
         </div>
-        <Row label="Custom">
-          <Slider
-            value={seg.speed}
-            min={0.25}
-            max={8}
-            step={0.05}
-            suffix="×"
-            onChange={(v) => setSpeed(id, v)}
-          />
-        </Row>
-      </div>
-
-      <div className="section">
-        <div className="section-title">Source range</div>
-        <Row label="In">
-          <span className="static-value">{seg.srcStart.toFixed(2)}s</span>
-        </Row>
-        <Row label="Out">
-          <span className="static-value">{seg.srcEnd.toFixed(2)}s</span>
-        </Row>
-        <Row label="On timeline">
-          <span className="static-value">{segmentLength(seg).toFixed(2)}s</span>
-        </Row>
+        <Field
+          label="Custom"
+          value={seg.speed}
+          min={0.25}
+          max={8}
+          step={0.05}
+          suffix="×"
+          onChange={(v) => setSpeed(id, v)}
+        />
+        <div className="stat-row">
+          <div className="stat">
+            <span className="stat-value">{segmentLength(seg).toFixed(2)}s</span>
+            <span className="stat-label">On timeline</span>
+          </div>
+          <div className="stat">
+            <span className="stat-value">{(seg.srcEnd - seg.srcStart).toFixed(2)}s</span>
+            <span className="stat-label">Of source</span>
+          </div>
+        </div>
         <p className="note">
           Drag the clip's edges on the timeline to trim. Splitting never touches
           the source file.
         </p>
-      </div>
+      </Section>
     </>
+  );
+}
+
+/** A live miniature of the composition, so padding, radius and shadow are
+ *  judged by looking rather than by reading three numbers. */
+function FramePreview() {
+  const doc = useStore((s) => s.doc);
+  const f = doc.frame;
+
+  return (
+    <div className="frame-preview" style={{ background: backgroundCss(doc.background) }}>
+      <div
+        className="frame-preview-inner"
+        style={{
+          inset: `${Math.max(4, f.padding * 100)}%`,
+          borderRadius: `${Math.max(2, f.radius / 3)}px`,
+          boxShadow: `0 ${f.shadowY / 6}px ${f.shadowBlur / 5}px rgba(0,0,0,${f.shadowOpacity})`,
+        }}
+      />
+    </div>
   );
 }
 
@@ -276,11 +236,15 @@ function ScenePanel() {
   return (
     <>
       <div className="panel-head">
-        <h2>Scene</h2>
+        <div>
+          <h2>Scene</h2>
+          <span className="panel-sub">
+            {doc.output.width} × {doc.output.height}
+          </span>
+        </div>
       </div>
 
-      <div className="section">
-        <div className="section-title">Background</div>
+      <Section title="Backdrop" accent={BLUE}>
         <div className="swatches">
           {PRESETS.map((p) => (
             <button
@@ -292,194 +256,171 @@ function ScenePanel() {
             />
           ))}
         </div>
-        <Row label="Type">
-          <select
-            value={bg.kind}
-            onChange={(e) => {
-              const k = e.target.value;
-              setBg(
-                k === "solid"
-                  ? { kind: "solid", color: "#EDEDED" }
-                  : k === "radial"
-                    ? { kind: "radial", from: "#FFFFFF", to: "#D9DDE3" }
-                    : { kind: "linear", from: "#EDEDED", to: "#DCDCDC", angle: 120 },
-              );
-            }}
-          >
-            <option value="linear">Linear</option>
-            <option value="radial">Radial</option>
-            <option value="solid">Solid</option>
-          </select>
-        </Row>
-        {bg.kind === "solid" ? (
-          <Row label="Colour">
-            <input
-              type="color"
-              value={bg.color}
-              onChange={(e) => setBg({ ...bg, color: e.target.value })}
-            />
-          </Row>
-        ) : (
-          <>
-            <Row label="From">
+
+        <Field2 label="Custom">
+          <div className="color-row">
+            <select
+              value={bg.kind}
+              onChange={(e) => {
+                const k = e.target.value;
+                setBg(
+                  k === "solid"
+                    ? { kind: "solid", color: "#EDEDED" }
+                    : k === "radial"
+                      ? { kind: "radial", from: "#FFFFFF", to: "#D9DDE3" }
+                      : { kind: "linear", from: "#EDEDED", to: "#DCDCDC", angle: 120 },
+                );
+              }}
+            >
+              <option value="linear">Linear</option>
+              <option value="radial">Radial</option>
+              <option value="solid">Solid</option>
+            </select>
+            {bg.kind === "solid" ? (
               <input
                 type="color"
-                value={bg.from}
-                onChange={(e) => setBg({ ...bg, from: e.target.value })}
+                value={bg.color}
+                onChange={(e) => setBg({ ...bg, color: e.target.value })}
               />
-            </Row>
-            <Row label="To">
-              <input
-                type="color"
-                value={bg.to}
-                onChange={(e) => setBg({ ...bg, to: e.target.value })}
-              />
-            </Row>
-            {bg.kind === "linear" && (
-              <Row label="Angle">
-                <Slider
-                  value={bg.angle}
-                  min={0}
-                  max={360}
-                  step={1}
-                  suffix="°"
-                  onChange={(v) => setBg({ ...bg, angle: v })}
+            ) : (
+              <>
+                <input
+                  type="color"
+                  value={bg.from}
+                  onChange={(e) => setBg({ ...bg, from: e.target.value })}
                 />
-              </Row>
+                <input
+                  type="color"
+                  value={bg.to}
+                  onChange={(e) => setBg({ ...bg, to: e.target.value })}
+                />
+              </>
             )}
-          </>
+          </div>
+        </Field2>
+
+        {bg.kind === "linear" && (
+          <Field
+            label="Angle"
+            value={bg.angle}
+            min={0}
+            max={360}
+            step={1}
+            suffix="°"
+            onChange={(v) => setBg({ ...bg, angle: v })}
+          />
         )}
-      </div>
+      </Section>
 
-      <div className="section">
-        <div className="section-title">Frame</div>
-        <Row label="Padding">
-          <Slider
-            value={doc.frame.padding}
-            min={0}
-            max={0.2}
-            step={0.005}
-            onChange={(v) => setFrame("padding", v)}
-          />
-        </Row>
-        <Row label="Radius">
-          <Slider
-            value={doc.frame.radius}
-            min={0}
-            max={64}
-            step={1}
-            onChange={(v) => setFrame("radius", v)}
-          />
-        </Row>
-        <Row label="Shadow">
-          <Slider
-            value={doc.frame.shadowOpacity}
-            min={0}
-            max={0.6}
-            step={0.01}
-            onChange={(v) => setFrame("shadowOpacity", v)}
-          />
-        </Row>
-        <Row label="Spread">
-          <Slider
-            value={doc.frame.shadowBlur}
-            min={0}
-            max={200}
-            step={1}
-            onChange={(v) => setFrame("shadowBlur", v)}
-          />
-        </Row>
-      </div>
+      <Section title="Frame" accent={TEAL}>
+        <FramePreview />
+        <Field
+          label="Padding"
+          value={doc.frame.padding}
+          min={0}
+          max={0.2}
+          step={0.005}
+          onChange={(v) => setFrame("padding", v)}
+        />
+        <Field
+          label="Radius"
+          value={doc.frame.radius}
+          min={0}
+          max={64}
+          step={1}
+          onChange={(v) => setFrame("radius", v)}
+        />
+        <Field
+          label="Shadow"
+          value={doc.frame.shadowOpacity}
+          min={0}
+          max={0.6}
+          step={0.01}
+          onChange={(v) => setFrame("shadowOpacity", v)}
+        />
+        <Field
+          label="Spread"
+          value={doc.frame.shadowBlur}
+          min={0}
+          max={200}
+          step={1}
+          onChange={(v) => setFrame("shadowBlur", v)}
+        />
+      </Section>
 
-      <div className="section">
-        <div className="section-title">New zoom defaults</div>
-        <Row label="Scale">
-          <Slider
-            value={doc.zoomDefaults.scale}
-            min={1}
-            max={6}
-            step={0.05}
-            suffix="×"
-            onChange={(v) => setZoomDefault("scale", v)}
-          />
-        </Row>
-        <Row label="Length">
-          <Slider
-            value={doc.zoomDefaults.duration}
-            min={1}
-            max={12}
-            step={0.1}
-            suffix="s"
-            onChange={(v) => setZoomDefault("duration", v)}
-          />
-        </Row>
-        <Row label="Ramp">
-          <Slider
-            value={doc.zoomDefaults.ramp}
-            min={0.1}
-            max={4}
-            step={0.05}
-            suffix="s"
-            onChange={(v) => setZoomDefault("ramp", v)}
-          />
-        </Row>
-        <Row label="Easing">
-          <select
-            value={doc.zoomDefaults.ease}
-            onChange={(e) => setZoomDefault("ease", e.target.value as never)}
-          >
-            {EASE_NAMES.map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
-        </Row>
+      <Section title="New zooms" accent={MAUVE}>
+        <EaseCurve name={doc.zoomDefaults.ease} bounce={doc.zoomDefaults.bounce} />
+        <div className="ease-picker">
+          {EASE_NAMES.map((n) => (
+            <button
+              key={n}
+              className={`ease-chip${doc.zoomDefaults.ease === n ? " selected" : ""}`}
+              onClick={() => setZoomDefault("ease", n)}
+            >
+              {n}
+            </button>
+          ))}
+        </div>
+        <Field
+          label="Scale"
+          value={doc.zoomDefaults.scale}
+          min={1}
+          max={6}
+          step={0.05}
+          suffix="×"
+          onChange={(v) => setZoomDefault("scale", v)}
+        />
+        <Field
+          label="Length"
+          value={doc.zoomDefaults.duration}
+          min={1}
+          max={12}
+          step={0.1}
+          suffix="s"
+          onChange={(v) => setZoomDefault("duration", v)}
+        />
+        <Field
+          label="Ramp"
+          value={doc.zoomDefaults.ramp}
+          min={0.1}
+          max={4}
+          step={0.05}
+          suffix="s"
+          onChange={(v) => setZoomDefault("ramp", v)}
+        />
         {doc.zoomDefaults.ease === "spring" && (
-          <Row label="Bounce">
-            <Slider
-              value={doc.zoomDefaults.bounce}
-              min={0}
-              max={1}
-              step={0.05}
-              onChange={(v) => setZoomDefault("bounce", v)}
-            />
-          </Row>
+          <Field
+            label="Bounce"
+            value={doc.zoomDefaults.bounce}
+            min={0}
+            max={1}
+            step={0.05}
+            onChange={(v) => setZoomDefault("bounce", v)}
+          />
         )}
         <p className="note">
           Ramp is how long the camera spends accelerating. Below about a second
           a push-in reads as a cut rather than a move.
         </p>
-      </div>
+      </Section>
 
       {hasCursor && (
-        <div className="section">
-          <div className="section-title">Cursor</div>
-          <Row label="Smoothing">
-            <Slider
-              value={doc.cursorSmoothing}
-              min={0.02}
-              max={1}
-              step={0.02}
-              suffix="s"
-              onChange={(v) => patch({ cursorSmoothing: v })}
-            />
-          </Row>
+        <Section title="Cursor" accent={PEACH}>
+          <Field
+            label="Smoothing"
+            value={doc.cursorSmoothing}
+            min={0.02}
+            max={1}
+            step={0.02}
+            suffix="s"
+            onChange={(v) => patch({ cursorSmoothing: v })}
+          />
           <p className="note">
-            How much of the pointer's jitter to average away when a zoom is
-            following it. Higher is calmer but lags fast movements.
+            How much pointer jitter to average away while a zoom follows it.
+            Higher is calmer but lags fast movements.
           </p>
-        </div>
+        </Section>
       )}
-
-      <div className="section">
-        <div className="section-title">Output</div>
-        <Row label="Size">
-          <span className="static-value">
-            {doc.output.width} × {doc.output.height}
-          </span>
-        </Row>
-      </div>
     </>
   );
 }

@@ -1,88 +1,74 @@
 /*
- * Motion — light editor theme.
+ * Motion — light theme, Catppuccin Latte accents.
  *
- * The rules this follows, taken from how good tool UIs actually behave:
+ * Flat by default. Separation is carried by hairline borders and small fill
+ * changes, never by gradients, inset highlights or drop shadows — those read
+ * as skeuomorphic and were what made the previous pass look heavy.
  *
- *  - Space is the main tool. Sections breathe, labels sit well clear of what
- *    they label, rows are tall enough to scan down a column of them.
- *  - Hierarchy comes from weight and colour, not size. Almost everything is
- *    12.5–13px; what changes is how dark it is and how heavy.
- *  - Values live in soft grey fields. A number floating loose on white reads
- *    as text; the same number in a field reads as something you can change.
- *  - Dividers are hairlines. Anything heavier chops the panel into boxes.
+ * Hierarchy comes from weight, colour and space at a nearly constant type
+ * size. Every colour is drawn from the Latte ramp, so nothing on screen is a
+ * shade someone invented on the spot.
  */
 
 :root {
-  /* A warm off-white rather than cold grey. Neutral greys are what make a
-     tool look like a settings dialog; a little warmth in the paper makes the
-     white panels sit on it rather than disappear into it. */
-  --page: #f4f3f0;
+  /* Catppuccin Latte — neutrals */
+  --ctp-base: #eff1f5;
+  --ctp-mantle: #e6e9ef;
+  --ctp-crust: #dce0e8;
+  --ctp-surface0: #ccd0da;
+  --ctp-surface1: #bcc0cc;
+  --ctp-surface2: #acb0be;
+  --ctp-overlay0: #9ca0b0;
+  --ctp-overlay1: #8c8fa1;
+  --ctp-overlay2: #7c7f93;
+  --ctp-subtext0: #6c6f85;
+  --ctp-subtext1: #5c5f77;
+  --ctp-text: #4c4f69;
+
+  /* Catppuccin Latte — accents */
+  --ctp-blue: #1e66f5;
+  --ctp-lavender: #7287fd;
+  --ctp-mauve: #8839ef;
+  --ctp-red: #d20f39;
+  --ctp-maroon: #e64553;
+  --ctp-peach: #fe640b;
+  --ctp-yellow: #df8e1d;
+  --ctp-green: #40a02b;
+  --ctp-teal: #179299;
+  --ctp-sky: #04a5e5;
+
+  /* Roles */
+  --page: var(--ctp-mantle);
   --panel: #ffffff;
+  --field: var(--ctp-base);
+  --field-hover: #e8ebf0;
+  --track: var(--ctp-surface0);
 
-  /* Fields and other inset surfaces. */
-  --field: #f5f6f7;
-  --field-hover: #eeeff1;
-  --track: #e6e8ea;
+  --line: #edeff3;
+  --border: var(--ctp-crust);
+  --border-strong: var(--ctp-surface0);
 
-  /* Hairline first, then a slightly firmer one for things that must read as
-     an edge rather than a seam. */
-  --line: #f0f1f2;
-  --border: #e4e5e8;
-  --border-strong: #d8dade;
+  --text: var(--ctp-text);
+  --text-2: var(--ctp-subtext0);
+  --text-3: var(--ctp-overlay1);
 
-  --text: #17191d;
-  --text-2: #5c626c;
-  --text-3: #9299a3;
+  --accent: var(--ctp-blue);
+  --accent-hover: #1a58d8;
+  --accent-active: #1749b8;
+  --accent-soft: #e8eeff;
+  --accent-line: #c2d3fd;
 
-  /* Signature: indigo running to violet. One gradient used consistently —
-     primary buttons, active chips, the logo, timeline blocks — is what gives
-     an app a face you'd recognise from across the room. */
-  --accent: #6366f1;
-  --accent-2: #a855f7;
-  --accent-deep: #4f46e5;
-  --grad: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
-  --grad-hover: linear-gradient(135deg, #7275f3 0%, #b368f8 100%);
-  --accent-hover: #4f46e5;
-  --accent-soft: #f1f0fe;
-  --accent-line: #d6d4fb;
+  --danger: var(--ctp-red);
+  --danger-soft: #fce9ed;
+  --good: var(--ctp-green);
+  --good-soft: #eaf5e7;
 
-  /* Springy. Motion in the UI of a motion tool should have some bounce. */
-  --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
-
-  --danger: #f43f5e;
-  --danger-soft: #fff1f3;
-  --good: #10b981;
-  --good-soft: #ecfdf5;
-
-  --r-panel: 14px;
-  --r-card: 12px;
-  /* Pills. An 8px rectangle is the default every framework ships; a full
-     round instantly reads as someone's choice. */
-  --r-ctl: 999px;
-  --r-field: 9px;
+  --r-panel: 12px;
+  --r-card: 10px;
+  --r-ctl: 9px;
+  --r-field: 8px;
   --r-sm: 7px;
 
-  --shadow-panel: 0 1px 2px rgba(16, 18, 22, 0.04),
-    0 6px 20px rgba(16, 18, 22, 0.05);
-
-  /*
-   * Controls are lit from above: a faint vertical gradient, a bottom border
-   * a shade darker than the sides, an inset highlight along the top edge, and
-   * a shadow beneath. Any one of these alone looks like a mistake; together
-   * they read as a physical button. A flat fill with a uniform 1px border —
-   * what this had before — reads as a wireframe.
-   */
-  --btn-face: linear-gradient(180deg, #ffffff 0%, #f6f7f9 100%);
-  --btn-face-hover: linear-gradient(180deg, #fafbfc 0%, #eff1f4 100%);
-  --btn-border: #dcdee3;
-  --btn-border-bottom: #c9ccd3;
-  --btn-shadow: 0 1px 1.5px rgba(16, 18, 22, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  --btn-shadow-active: inset 0 1px 2.5px rgba(16, 18, 22, 0.13);
-
-  /* system-ui resolves to Noto Sans here, which is what made everything read
-     as unstyled. Adwaita Sans is Inter-derived and ships a full Thin–Black
-     range, so weight can carry hierarchy instead of size. */
   font-family: "Adwaita Sans", "Inter", ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", sans-serif;
   font-size: 13px;
@@ -111,7 +97,6 @@ button {
 
 button:disabled {
   cursor: default;
-  opacity: 0.4;
 }
 
 input,
@@ -150,7 +135,6 @@ select {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--r-panel);
-  box-shadow: var(--shadow-panel);
   overflow-y: auto;
   min-height: 0;
 }
@@ -162,12 +146,12 @@ select {
   background: transparent;
 }
 .panel::-webkit-scrollbar-thumb {
-  background: #d6d8dc;
+  background: var(--ctp-surface0);
   border: 3.5px solid var(--panel);
   border-radius: 999px;
 }
 .panel::-webkit-scrollbar-thumb:hover {
-  background: #c2c5cb;
+  background: var(--ctp-surface1);
 }
 
 /* ---------- topbar ---------- */
@@ -180,7 +164,6 @@ select {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--r-panel);
-  box-shadow: var(--shadow-panel);
 }
 
 .brand {
@@ -192,27 +175,14 @@ select {
 .logo {
   width: 20px;
   height: 20px;
-  border-radius: 7px;
-  background: var(--grad);
-  background-size: 160% 160%;
-  box-shadow: 0 2px 8px rgba(120, 87, 240, 0.4);
-  animation: logo-drift 7s ease-in-out infinite;
-}
-
-@keyframes logo-drift {
-  0%,
-  100% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
+  border-radius: 6px;
+  background: linear-gradient(135deg, var(--ctp-blue), var(--ctp-mauve));
 }
 
 .brand-name {
   font-size: 14.5px;
-  font-weight: 700;
-  letter-spacing: -0.03em;
+  font-weight: 650;
+  letter-spacing: -0.025em;
 }
 
 .doc-title {
@@ -229,7 +199,7 @@ select {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 7px;
+  gap: 6px;
 }
 
 .status {
@@ -271,97 +241,80 @@ select {
     opacity: 1;
   }
   50% {
-    opacity: 0.3;
+    opacity: 0.35;
   }
 }
 
 /* ---------- buttons ---------- */
+/*
+ * All flat: a border, a fill, and a fill change on hover. Nothing moves and
+ * nothing glows. State is communicated by colour alone.
+ */
 
-.primary-btn {
-  position: relative;
-  background: var(--grad);
-  color: #fff;
-  border: none;
+.ghost,
+.primary-btn,
+.rec-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
   border-radius: var(--r-ctl);
-  padding: 7px 18px;
   font-size: 12.5px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3),
-    0 1px 2px rgba(79, 70, 229, 0.2), 0 4px 14px rgba(120, 87, 240, 0.34);
-  overflow: hidden;
-  transition: transform 0.18s var(--ease-pop), box-shadow 0.18s ease,
-    background 0.18s ease;
+  font-weight: 550;
+  letter-spacing: -0.008em;
+  padding: 6px 13px;
+  transition: background 0.13s ease, border-color 0.13s ease, color 0.13s ease;
 }
 
-/* A sheen that sweeps across on hover. Small, cheap, and it makes the primary
-   action feel alive rather than painted on. */
-.primary-btn::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    100deg,
-    transparent 20%,
-    rgba(255, 255, 255, 0.35) 50%,
-    transparent 80%
-  );
-  transform: translateX(-120%);
-  transition: transform 0.55s ease;
-  pointer-events: none;
+.ghost svg,
+.primary-btn svg,
+.rec-btn svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+.primary-btn {
+  background: var(--accent);
+  color: #fff;
+  border: 1px solid var(--accent);
+  padding: 6px 15px;
 }
 
 .primary-btn:hover:not(:disabled) {
-  background: var(--grad-hover);
-  transform: translateY(-1px);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.34),
-    0 2px 4px rgba(79, 70, 229, 0.22), 0 8px 22px rgba(120, 87, 240, 0.42);
-}
-
-.primary-btn:hover:not(:disabled)::after {
-  transform: translateX(120%);
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
 }
 
 .primary-btn:active:not(:disabled) {
-  transform: translateY(0) scale(0.97);
-  box-shadow: inset 0 2px 5px rgba(49, 32, 120, 0.28);
+  background: var(--accent-active);
+  border-color: var(--accent-active);
 }
 
 .primary-btn:disabled {
-  opacity: 1;
-  background: #ecebe9;
-  color: #b1aeaa;
-  box-shadow: none;
+  background: var(--field);
+  border-color: var(--border);
+  color: var(--ctp-overlay0);
 }
 
 .ghost {
-  background: var(--btn-face);
-  border: 1px solid var(--btn-border);
-  border-bottom-color: var(--btn-border-bottom);
-  border-radius: var(--r-ctl);
-  padding: 6px 15px;
-  font-size: 12.5px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
   color: var(--text-2);
-  box-shadow: var(--btn-shadow);
-  transition: transform 0.18s var(--ease-pop), box-shadow 0.18s ease,
-    color 0.15s ease, border-color 0.15s ease;
 }
 
-/* Hover tints toward the brand rather than going grey — grey hover states are
-   why a toolbar reads as inert. */
 .ghost:hover:not(:disabled) {
-  color: var(--accent-deep);
-  border-color: var(--accent-line);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(16, 18, 22, 0.07),
-    0 6px 16px rgba(99, 102, 241, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  background: var(--field);
+  color: var(--text);
 }
 
 .ghost:active:not(:disabled) {
-  transform: translateY(0) scale(0.97);
-  box-shadow: var(--btn-shadow-active);
+  background: var(--field-hover);
+}
+
+.ghost:disabled {
+  color: var(--ctp-overlay0);
+  border-color: var(--border);
 }
 
 .ghost.danger {
@@ -369,13 +322,6 @@ select {
   background: transparent;
   color: var(--danger);
   padding: 4px 9px;
-  font-weight: 500;
-  box-shadow: none;
-}
-
-.ghost.danger:active:not(:disabled) {
-  background: var(--danger-soft);
-  box-shadow: none;
 }
 
 .ghost.danger:hover:not(:disabled) {
@@ -383,21 +329,9 @@ select {
 }
 
 .rec-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--btn-face);
-  border: 1px solid var(--btn-border);
-  border-bottom-color: var(--btn-border-bottom);
-  border-radius: var(--r-ctl);
-  padding: 6px 15px;
-  font-size: 12.5px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
   color: var(--text-2);
-  box-shadow: var(--btn-shadow);
-  transition: transform 0.18s var(--ease-pop), box-shadow 0.18s ease,
-    color 0.15s ease, border-color 0.15s ease;
 }
 
 .rec-btn::before {
@@ -406,99 +340,62 @@ select {
   height: 8px;
   border-radius: 50%;
   background: var(--danger);
-  box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.16);
-  transition: all 0.2s var(--ease-pop);
+  flex: none;
 }
 
 .rec-btn:hover:not(:disabled) {
+  background: var(--danger-soft);
+  border-color: #f0c4ce;
   color: var(--danger);
-  border-color: #fbc9d2;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(16, 18, 22, 0.07),
-    0 6px 16px rgba(244, 63, 94, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.9);
-}
-
-.rec-btn:hover:not(:disabled)::before {
-  box-shadow: 0 0 0 4px rgba(244, 63, 94, 0.22);
-}
-
-.rec-btn:active:not(:disabled) {
-  transform: translateY(0) scale(0.97);
 }
 
 .rec-btn.active {
-  background: linear-gradient(135deg, #fb5f78 0%, #f43f5e 100%);
-  border-color: transparent;
+  background: var(--danger);
+  border-color: var(--danger);
   color: #fff;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    0 4px 14px rgba(244, 63, 94, 0.4);
 }
 
-/* Square while recording, and breathing, so a live capture is unmistakable. */
 .rec-btn.active::before {
-  border-radius: 2.5px;
+  border-radius: 2px;
   background: #fff;
-  box-shadow: none;
-  animation: rec-breathe 1.5s ease-in-out infinite;
-}
-
-@keyframes rec-breathe {
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(0.82);
-    opacity: 0.75;
-  }
+  animation: rec-pulse 1.6s ease-in-out infinite;
 }
 
 .icon-btn {
-  background: var(--btn-face);
-  border: 1px solid var(--btn-border);
-  border-bottom-color: var(--btn-border-bottom);
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
   border-radius: 50%;
-  width: 30px;
-  height: 30px;
+  width: 29px;
+  height: 29px;
   display: grid;
   place-items: center;
   color: var(--text-3);
   padding: 0;
-  box-shadow: var(--btn-shadow);
-  transition: transform 0.18s var(--ease-pop), box-shadow 0.18s ease,
-    color 0.15s ease, border-color 0.15s ease;
+  transition: background 0.13s ease, border-color 0.13s ease, color 0.13s ease;
 }
 
 .icon-btn:hover:not(:disabled) {
-  color: var(--accent-deep);
-  border-color: var(--accent-line);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(16, 18, 22, 0.07),
-    0 6px 14px rgba(99, 102, 241, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  background: var(--field);
+  color: var(--text);
 }
 
-.icon-btn:active:not(:disabled) {
-  transform: translateY(0) scale(0.92);
-  box-shadow: var(--btn-shadow-active);
+.icon-btn:disabled {
+  color: var(--ctp-surface1);
+  border-color: var(--border);
 }
 
 .icon-btn.primary {
-  background: var(--grad);
-  border-color: transparent;
+  background: var(--accent);
+  border-color: var(--accent);
   color: #fff;
-  width: 34px;
-  height: 34px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3),
-    0 4px 14px rgba(120, 87, 240, 0.36);
+  width: 32px;
+  height: 32px;
 }
 
 .icon-btn.primary:hover:not(:disabled) {
-  background: var(--grad-hover);
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
   color: #fff;
-  border-color: transparent;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.34),
-    0 6px 20px rgba(120, 87, 240, 0.46);
 }
 
 .icon-btn svg {
@@ -511,11 +408,13 @@ select {
   width: 100%;
   background: var(--field);
   border: 1px solid transparent;
-  border-radius: var(--r-ctl);
+  border-radius: var(--r-field);
   padding: 8px 12px;
+  font-size: 12.5px;
   font-weight: 500;
   color: var(--text-2);
   text-align: left;
+  transition: background 0.13s ease, color 0.13s ease;
 }
 
 .wide-btn:hover:not(:disabled) {
@@ -524,23 +423,19 @@ select {
 }
 
 .mini {
-  background: var(--btn-face);
-  border: 1px solid var(--btn-border);
-  border-bottom-color: var(--btn-border-bottom);
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
   border-radius: var(--r-sm);
   font-size: 12px;
   font-weight: 500;
-  color: var(--text);
+  color: var(--text-2);
   padding: 3px 10px;
-  box-shadow: var(--btn-shadow);
+  transition: background 0.13s ease, color 0.13s ease;
 }
 
 .mini:hover:not(:disabled) {
-  background: var(--btn-face-hover);
-}
-
-.mini:active:not(:disabled) {
-  box-shadow: var(--btn-shadow-active);
+  background: var(--field);
+  color: var(--text);
 }
 
 /* ---------- panel structure ---------- */
@@ -554,8 +449,8 @@ select {
 
 .panel-head h2 {
   font-size: 15px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font-weight: 650;
+  letter-spacing: -0.022em;
   margin: 0;
 }
 
@@ -568,32 +463,13 @@ select {
   border-bottom: none;
 }
 
-/*
- * Micro-labels need real distance from their content. Cramming them up
- * against the first row is what makes a settings panel look like a form
- * dump rather than a designed surface.
- */
 .section-title {
-  display: flex;
-  align-items: center;
-  gap: 7px;
   font-size: 10.5px;
-  font-weight: 700;
+  font-weight: 650;
   letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--text-3);
   margin-bottom: 14px;
-}
-
-/* A small gradient tick in front of every section label. Repetition of the
-   signature colour in tiny doses is what ties a UI together. */
-.section-title::before {
-  content: "";
-  width: 3px;
-  height: 11px;
-  border-radius: 2px;
-  background: var(--grad);
-  flex: none;
 }
 
 .note {
@@ -641,10 +517,11 @@ select {
   color: var(--text);
   font-size: 12.5px;
   font-weight: 500;
-  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.75L6 7.75L9 4.75' stroke='%239299a3' stroke-width='1.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.75L6 7.75L9 4.75' stroke='%238c8fa1' stroke-width='1.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 9px center;
   background-size: 12px;
+  transition: background-color 0.13s ease, border-color 0.13s ease;
 }
 
 select:hover {
@@ -653,17 +530,29 @@ select:hover {
 
 select:focus-visible {
   outline: none;
-  border-color: var(--accent-line);
+  border-color: var(--accent);
 }
 
 input[type="color"] {
-  width: 44px;
-  height: 26px;
+  appearance: none;
+  width: 100%;
+  height: 30px;
   padding: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-field);
   background: none;
   cursor: pointer;
+  overflow: hidden;
+}
+
+/* WebKit nests the actual colour two pseudo-elements deep; without flattening
+   both, the control renders as an empty grey box. */
+input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+input[type="color"]::-webkit-color-swatch {
+  border: none;
 }
 
 input[type="checkbox"] {
@@ -677,10 +566,11 @@ input[type="checkbox"] {
   place-items: center;
   cursor: pointer;
   margin: 0;
+  transition: background 0.13s ease, border-color 0.13s ease;
 }
 
 input[type="checkbox"]:hover:not(:disabled) {
-  border-color: var(--text-3);
+  border-color: var(--ctp-overlay0);
 }
 
 input[type="checkbox"]:checked {
@@ -698,7 +588,8 @@ input[type="checkbox"]:checked::after {
 }
 
 input[type="checkbox"]:disabled {
-  opacity: 0.4;
+  background: var(--field);
+  border-color: var(--border);
   cursor: default;
 }
 
@@ -712,11 +603,8 @@ input[type="checkbox"]:disabled {
   min-width: 0;
 }
 
-/*
- * The filled portion is a gradient stop driven by --pct from the component:
- * WebKit has no progress pseudo-element for range inputs, so there is no
- * CSS-only way to show how far along the value sits.
- */
+/* WebKit has no progress pseudo-element for range inputs, so the filled
+   portion is a gradient stop driven by --pct from the component. */
 .slider input[type="range"] {
   appearance: none;
   flex: 1;
@@ -745,15 +633,13 @@ input[type="checkbox"]:disabled {
   height: 13px;
   margin-top: -4.5px;
   border-radius: 50%;
-  background: #fff;
-  border: 1px solid var(--border-strong);
-  box-shadow: 0 1px 2px rgba(16, 18, 22, 0.18);
-  transition: transform 0.1s ease;
+  background: var(--panel);
+  border: 1.5px solid var(--accent);
+  transition: transform 0.12s ease;
 }
 
 .slider input[type="range"]:hover::-webkit-slider-thumb {
-  transform: scale(1.12);
-  border-color: var(--accent);
+  transform: scale(1.15);
 }
 
 .slider input[type="range"]::-moz-range-track {
@@ -772,12 +658,10 @@ input[type="checkbox"]:disabled {
   width: 13px;
   height: 13px;
   border-radius: 50%;
-  background: #fff;
-  border: 1px solid var(--border-strong);
+  background: var(--panel);
+  border: 1.5px solid var(--accent);
 }
 
-/* A number in a field reads as editable; the same number loose on white
-   reads as a caption. */
 .slider-value {
   min-width: 54px;
   padding: 4px 9px;
@@ -801,17 +685,19 @@ input[type="checkbox"]:disabled {
 .swatch {
   aspect-ratio: 1;
   border-radius: var(--r-sm);
-  border: 1px solid rgba(16, 18, 22, 0.1);
+  border: 1px solid var(--border-strong);
   padding: 0;
   outline-offset: 2px;
+  transition: border-color 0.13s ease;
 }
 
 .swatch:hover {
-  border-color: rgba(16, 18, 22, 0.3);
+  border-color: var(--ctp-overlay1);
 }
 
 .swatch.selected {
   outline: 2px solid var(--accent);
+  border-color: transparent;
 }
 
 .chips {
@@ -829,6 +715,7 @@ input[type="checkbox"]:disabled {
   font-size: 12px;
   font-weight: 500;
   color: var(--text-2);
+  transition: background 0.13s ease, color 0.13s ease;
 }
 
 .chip:hover:not(.selected) {
@@ -837,11 +724,9 @@ input[type="checkbox"]:disabled {
 }
 
 .chip.selected {
-  background: linear-gradient(180deg, #4d7bf9 0%, #2c60f6 100%);
-  border-color: #2350d4;
+  background: var(--accent);
+  border-color: var(--accent);
   color: #fff;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22),
-    0 1px 2px rgba(44, 96, 246, 0.22);
 }
 
 /* ---------- library ---------- */
@@ -863,7 +748,8 @@ input[type="checkbox"]:disabled {
   border: 1px solid var(--border);
   border-radius: var(--r-card);
   padding: 11px 13px;
-  margin-bottom: 7px;
+  margin-bottom: 6px;
+  transition: background 0.13s ease, border-color 0.13s ease;
 }
 
 .effect:hover:not(:disabled) {
@@ -877,8 +763,12 @@ input[type="checkbox"]:disabled {
   gap: 7px;
   font-size: 13px;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.012em;
   color: var(--text);
+}
+
+.effect:disabled .effect-name {
+  color: var(--text-2);
 }
 
 .effect-desc {
@@ -892,7 +782,7 @@ input[type="checkbox"]:disabled {
 .soon {
   margin-left: auto;
   font-size: 9.5px;
-  font-weight: 600;
+  font-weight: 650;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   background: var(--field);
@@ -915,11 +805,12 @@ input[type="checkbox"]:disabled {
   width: 100%;
   background: none;
   border: 1px solid transparent;
-  border-radius: var(--r-ctl);
+  border-radius: var(--r-field);
   padding: 8px 10px;
   text-align: left;
   color: var(--text-2);
   font-weight: 500;
+  transition: background 0.13s ease, color 0.13s ease;
 }
 
 .layer:hover {
@@ -958,7 +849,6 @@ input[type="checkbox"]:disabled {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--r-panel);
-  box-shadow: var(--shadow-panel);
   padding: 22px;
   overflow: hidden;
 }
@@ -968,7 +858,10 @@ input[type="checkbox"]:disabled {
   max-height: 100%;
   border-radius: 6px;
   cursor: crosshair;
-  box-shadow: 0 2px 10px rgba(16, 18, 22, 0.09);
+  /* The only shadow left in the UI. The preview genuinely is a separate object
+     resting on the workspace, and it has to read that way. */
+  box-shadow: 0 1px 3px rgba(76, 79, 105, 0.1),
+    0 8px 24px rgba(76, 79, 105, 0.08);
 }
 
 .hidden-video {
@@ -990,7 +883,6 @@ input[type="checkbox"]:disabled {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--r-panel);
-  box-shadow: var(--shadow-panel);
 }
 
 .timecode {
@@ -1009,20 +901,20 @@ input[type="checkbox"]:disabled {
   left: 12px;
   bottom: 12px;
   z-index: 5;
-  background: rgba(23, 25, 29, 0.94);
-  color: #dfe3ea;
+  background: rgba(76, 79, 105, 0.95);
+  color: var(--ctp-base);
   font-family: ui-monospace, "SF Mono", monospace;
   font-size: 10.5px;
   line-height: 1.6;
   padding: 8px 10px;
-  border-radius: var(--r-ctl);
+  border-radius: var(--r-field);
   max-width: 90%;
   overflow: hidden;
   pointer-events: none;
 }
 
 .diag b {
-  color: #8fb0ff;
+  color: #a6c8ff;
   font-weight: 600;
 }
 
@@ -1034,7 +926,6 @@ input[type="checkbox"]:disabled {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--r-panel);
-  box-shadow: var(--shadow-panel);
   overflow: hidden;
 }
 
@@ -1059,10 +950,10 @@ input[type="checkbox"]:disabled {
   gap: 7px;
   padding: 0 14px;
   color: var(--text-3);
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 10.5px;
+  font-weight: 650;
   text-transform: uppercase;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.09em;
   border-bottom: 1px solid var(--line);
 }
 
@@ -1129,15 +1020,15 @@ input[type="checkbox"]:disabled {
   position: absolute;
   top: 9px;
   bottom: 9px;
-  border-radius: var(--r-ctl);
-  background: #eef2ff;
-  border: 1px solid #d5deff;
+  border-radius: var(--r-field);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 12px;
   font-weight: 500;
-  color: #3a4a7d;
+  color: var(--accent-hover);
   overflow: hidden;
   white-space: nowrap;
   cursor: pointer;
@@ -1147,7 +1038,6 @@ input[type="checkbox"]:disabled {
 
 .clip-bar.selected {
   border-color: var(--accent);
-  box-shadow: inset 0 0 0 1px var(--accent);
 }
 
 .clip-name {
@@ -1163,13 +1053,18 @@ input[type="checkbox"]:disabled {
   color: var(--accent);
 }
 
+/*
+ * Mauve rather than blue. The zoom track is a different kind of thing from
+ * the footage beneath it, and a second accent off the same ramp says so
+ * without needing a legend.
+ */
 .block {
   position: absolute;
   top: 9px;
   bottom: 9px;
-  background: var(--accent-soft);
-  border: 1px solid var(--accent-line);
-  border-radius: var(--r-ctl);
+  background: #f2eafd;
+  border: 1px solid #dcc6fa;
+  border-radius: var(--r-field);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1177,21 +1072,22 @@ input[type="checkbox"]:disabled {
   user-select: none;
   min-width: 12px;
   overflow: hidden;
+  transition: border-color 0.13s ease, background 0.13s ease;
 }
 
 .block:hover {
-  border-color: var(--accent);
+  border-color: var(--ctp-mauve);
 }
 
 .block.selected {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--ctp-mauve);
+  border-color: var(--ctp-mauve);
 }
 
 .block-label {
   font-size: 12px;
   font-weight: 600;
-  color: var(--accent);
+  color: var(--ctp-mauve);
   pointer-events: none;
 }
 
@@ -1234,33 +1130,352 @@ input[type="checkbox"]:disabled {
   background: var(--danger);
 }
 
-/* Buttons that carry an icon need to lay it out; a glyph jammed against a
-   label is worse than no glyph at all. */
-.ghost,
-.primary-btn,
-.rec-btn {
-  display: inline-flex;
+/* ---------- inspector: fields, sections, curve ---------- */
+
+.panel-head {
+  align-items: flex-start;
+}
+
+.panel-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Collapsible groups replace the old flat stack of identical rows. */
+.sec {
+  border-bottom: 1px solid var(--line);
+}
+
+.sec:last-child {
+  border-bottom: none;
+}
+
+.sec-head {
+  display: flex;
   align-items: center;
-  gap: 7px;
-  white-space: nowrap;
+  gap: 9px;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 14px 20px;
+  text-align: left;
 }
 
-.ghost svg,
-.primary-btn svg {
-  width: 14px;
-  height: 14px;
+.sec-head:hover .sec-title {
+  color: var(--text-2);
+}
+
+.sec-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ctp-overlay1);
   flex: none;
-  /* Icons sit a touch lighter than their label so the word leads. */
-  opacity: 0.75;
 }
 
-.primary-btn svg {
-  opacity: 0.9;
-  position: relative;
-  z-index: 1;
+.sec-title {
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  transition: color 0.13s ease;
 }
 
-.primary-btn span,
-.primary-btn {
+.sec-chevron {
+  width: 12px;
+  height: 12px;
+  margin-left: auto;
+  color: var(--ctp-overlay0);
+  transition: transform 0.18s ease;
+  transform: rotate(-90deg);
+}
+
+.sec.open .sec-chevron {
+  transform: rotate(0deg);
+}
+
+.sec-body {
+  padding: 0 20px 18px;
+}
+
+/* A control is a label + value line with the track full width beneath, so the
+   fill levels can be read down the column like a bar chart. */
+.field {
+  margin-bottom: 14px;
+}
+
+.field:last-child {
+  margin-bottom: 0;
+}
+
+.field-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.field-label {
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+
+.field-hint {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.num {
+  background: var(--field);
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  padding: 3px 9px;
+  font-size: 12px;
+  font-weight: 550;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  cursor: ew-resize;
+  transition: background 0.13s ease, border-color 0.13s ease;
+}
+
+.num:hover {
+  background: var(--field-hover);
+  border-color: var(--border-strong);
+}
+
+.num-suffix {
+  color: var(--text-3);
+  margin-left: 1px;
+  font-weight: 500;
+}
+
+.num-input {
+  width: 66px;
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-sm);
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 550;
+  color: var(--text);
+  text-align: right;
+  outline: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.field-range {
+  appearance: none;
+  width: 100%;
+  height: 16px;
+  background: transparent;
+  margin: 0;
+  cursor: pointer;
+  display: block;
+}
+
+.field-range::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--accent) 0%,
+    var(--accent) var(--pct, 0%),
+    var(--track) var(--pct, 0%),
+    var(--track) 100%
+  );
+}
+
+.field-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -4px;
+  border-radius: 50%;
+  background: var(--panel);
+  border: 1.5px solid var(--accent);
+  transition: transform 0.12s ease;
+}
+
+.field-range:hover::-webkit-slider-thumb {
+  transform: scale(1.18);
+}
+
+/* The easing curve, drawn from the same function the renderer uses. */
+.ease-curve {
+  width: 100%;
+  height: 62px;
+  display: block;
+  background: var(--field);
+  border-radius: var(--r-field);
+  margin-bottom: 10px;
+}
+
+.ease-path {
+  fill: none;
+  stroke: var(--ctp-mauve);
+  stroke-width: 2;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.ease-rest {
+  stroke: var(--ctp-surface1);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.ease-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 16px;
+}
+
+.ease-chip {
+  background: var(--field);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 4px 11px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-2);
+  transition: background 0.13s ease, color 0.13s ease;
+}
+
+.ease-chip:hover:not(.selected) {
+  background: var(--field-hover);
+  color: var(--text);
+}
+
+.ease-chip.selected {
+  background: var(--ctp-mauve);
+  border-color: var(--ctp-mauve);
+  color: #fff;
+}
+
+/* Switch, rather than a checkbox marooned at the end of a row. */
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  background: var(--field);
+  border: 1px solid transparent;
+  border-radius: var(--r-field);
+  padding: 8px 11px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-2);
+  transition: background 0.13s ease, color 0.13s ease;
+}
+
+.toggle-knob {
   position: relative;
+  width: 30px;
+  height: 17px;
+  border-radius: 999px;
+  background: var(--ctp-surface1);
+  flex: none;
+  transition: background 0.16s ease;
+}
+
+.toggle-knob::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.16s ease;
+}
+
+.toggle.on {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.toggle.on .toggle-knob {
+  background: var(--accent);
+}
+
+.toggle.on .toggle-knob::after {
+  transform: translateX(13px);
+}
+
+.toggle:disabled {
+  opacity: 0.5;
+}
+
+/* Live miniature of the composition — padding, radius and shadow judged by
+   eye instead of by reading three numbers. */
+.frame-preview {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--r-field);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+.frame-preview-inner {
+  position: absolute;
+  background: var(--panel);
+}
+
+.stat-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.stat {
+  background: var(--field);
+  border-radius: var(--r-field);
+  padding: 9px 11px;
+}
+
+.stat-value {
+  display: block;
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-label {
+  display: block;
+  margin-top: 1px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.color-row {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+}
+
+.color-row select {
+  flex: 1;
+}
+
+.color-row input[type="color"] {
+  width: 38px;
+  flex: none;
+}
+
+.sec-body .wide-btn + .wide-btn {
+  margin-top: 6px;
 }
