@@ -1479,3 +1479,261 @@ input[type="checkbox"]:disabled {
 .sec-body .wide-btn + .wide-btn {
   margin-top: 6px;
 }
+
+/* ---------- library ---------- */
+
+.effect-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.effect {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  margin-bottom: 0;
+  padding: 10px 11px;
+}
+
+/* A tinted icon chip per effect. Colour is what makes a list of five
+   similarly-shaped cards scannable rather than a wall of text. */
+.effect-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+
+.effect-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.effect-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.effect.soon-card .effect-icon {
+  filter: saturate(0.25);
+}
+
+.effect:disabled {
+  cursor: default;
+}
+
+.empty {
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1.55;
+  margin: 0;
+}
+
+/* Layer rows show where the move sits in the whole piece, not just its name. */
+.layer {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 7px;
+  padding: 9px 10px;
+}
+
+.layer-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.layer-name {
+  font-size: 12.5px;
+  font-weight: 550;
+}
+
+.layer-meta {
+  margin-left: auto;
+}
+
+.layer-del {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  display: grid;
+  place-items: center;
+  color: var(--text-3);
+  font-size: 15px;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.13s ease, background 0.13s ease;
+}
+
+.layer:hover .layer-del {
+  opacity: 1;
+}
+
+.layer-del:hover {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.layer-track {
+  position: relative;
+  display: block;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--track);
+  overflow: hidden;
+}
+
+.layer-span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+  background: var(--ctp-mauve);
+}
+
+/* ---------- timeline ---------- */
+
+.track-label {
+  gap: 8px;
+}
+
+.track-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  flex: none;
+}
+
+.track-dot.video {
+  background: var(--ctp-blue);
+}
+
+.track-dot.zoom {
+  background: var(--ctp-mauve);
+}
+
+.track-name {
+  flex: 1;
+}
+
+.tick.minor {
+  border-left-color: #f5f6f8;
+}
+
+/* The playhead carries its own time, so you never have to look elsewhere to
+   know where you are. */
+.ruler-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.ruler-time {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  padding: 1.5px 5px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.clip-bar {
+  gap: 8px;
+  padding: 0 10px;
+  justify-content: flex-start;
+}
+
+.clip-name {
+  padding: 0;
+  flex: 1;
+}
+
+.clip-badge {
+  background: var(--accent);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 1.5px 6px;
+  border-radius: 999px;
+  flex: none;
+}
+
+.block {
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* Every block plots its own ramp-in, hold and ramp-out, from the same easing
+   function the renderer uses. The timeline then tells you how a move feels,
+   not merely when it happens. */
+.block-curve {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.block-curve polyline {
+  fill: none;
+  stroke: var(--ctp-mauve);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  opacity: 0.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.block.selected .block-curve polyline {
+  stroke: #fff;
+  opacity: 0.85;
+}
+
+.block-label {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.block-label em {
+  font-style: normal;
+  font-size: 9.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: rgba(136, 57, 239, 0.14);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.block.selected .block-label em {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+.playhead {
+  border-left-width: 2px;
+}
+
+/* A tapered head rather than a floating dot — it reads as attached to the
+   line it marks. */
+.playhead::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -5px;
+  width: 12px;
+  height: 5px;
+  border-radius: 0 0 3px 3px;
+  background: var(--danger);
+}

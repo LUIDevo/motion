@@ -2,6 +2,45 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useStore } from "../doc/store";
 import { docDuration, segmentLength, segmentOffset } from "../doc/time";
 import { fmtTime } from "./format";
+import { ease } from "../render/easing";
+import type { ZoomBlock } from "../doc/types";
+
+/**
+ * Each block draws its own motion: the ramp-in curve, the hold, the ramp-out.
+ * Reading a timeline should tell you how something moves, not just when — and
+ * this is sampled from the same easing function the renderer uses.
+ */
+function BlockCurve({ block }: { block: ZoomBlock }) {
+  const len = block.end - block.start;
+  if (len <= 0) return null;
+
+  const w = 100;
+  const h = 100;
+  const inFrac = Math.min(0.5, block.rampIn / len);
+  const outFrac = Math.min(0.5, block.rampOut / len);
+
+  const pts: string[] = [];
+  for (let i = 0; i <= 40; i++) {
+    const u = i / 40;
+    let v: number;
+    if (inFrac > 0 && u < inFrac) v = ease(block.ease, u / inFrac, block.bounce);
+    else if (outFrac > 0 && u > 1 - outFrac) {
+      v = ease(block.ease, (1 - u) / outFrac, block.bounce);
+    } else v = 1;
+    pts.push(`${(u * w).toFixed(1)},${(h - v * h * 0.82 - 9).toFixed(1)}`);
+  }
+
+  return (
+    <svg
+      className="block-curve"
+      viewBox={`0 0 ${w} ${h}`}
+      preserveAspectRatio="none"
+      aria-hidden
+    >
+      <polyline points={pts.join(" ")} />
+    </svg>
+  );
+}
 
 type BlockMode = "move" | "left" | "right";
 
@@ -150,9 +189,13 @@ export default function Timeline() {
   };
 
   const ticks: number[] = [];
+  const minorTicks: number[] = [];
   if (duration > 0) {
     const step = tickStep(duration, width);
     for (let t = 0; t <= duration + 1e-6; t += step) ticks.push(t);
+    // Four unlabelled subdivisions between labels give the eye something to
+    // judge distance against without adding more numbers to read.
+    for (let t = 0; t <= duration + 1e-6; t += step / 4) minorTicks.push(t);
   }
 
   return (
@@ -172,20 +215,30 @@ export default function Timeline() {
           </button>
         </div>
         <div className="track-label">
-          Video <span className="count">{doc.segments.length}</span>
+          <span className="track-dot video" />
+          <span className="track-name">Video</span>
+          <span className="count">{doc.segments.length}</span>
         </div>
         <div className="track-label">
-          Zoom <span className="count">{doc.blocks.length}</span>
+          <span className="track-dot zoom" />
+          <span className="track-name">Zoom</span>
+          <span className="count">{doc.blocks.length}</span>
         </div>
       </div>
 
       <div className="track-area">
         <div className="ruler" onPointerDown={scrub} onPointerMove={scrubMove}>
+          {minorTicks.map((t) => (
+            <div key={`m${t}`} className="tick minor" style={{ left: `${pct(t)}%` }} />
+          ))}
           {ticks.map((t) => (
             <div key={t} className="tick" style={{ left: `${pct(t)}%` }}>
               <span>{fmtTime(t).slice(0, -3)}</span>
             </div>
           ))}
+          <div className="ruler-playhead" style={{ left: `${pct(playhead)}%` }}>
+            <span className="ruler-time">{fmtTime(playhead).slice(0, -1)}</span>
+          </div>
         </div>
 
         <div className="lanes" ref={laneRef}>
@@ -206,10 +259,10 @@ export default function Timeline() {
                     title={`${doc.clip!.name} · ${seg.speed}×`}
                   >
                     <span className="handle left" onPointerDown={(e) => beginTrim(e, seg.id, "left")} />
-                    <span className="clip-name">
-                      {doc.clip!.name}
-                      {seg.speed !== 1 && <em> {seg.speed}×</em>}
-                    </span>
+                    <span className="clip-name">{doc.clip!.name}</span>
+                    {seg.speed !== 1 && (
+                      <span className="clip-badge">{seg.speed}×</span>
+                    )}
                     <span className="handle right" onPointerDown={(e) => beginTrim(e, seg.id, "right")} />
                   </div>
                 );
@@ -230,15 +283,16 @@ export default function Timeline() {
                 title="Drag to move · edges to resize · double-click to delete"
               >
                 <span className="handle left" onPointerDown={(e) => beginBlockDrag(e, b.id, "left")} />
-                <span className="block-label">{b.scale.toFixed(1)}×</span>
+                <BlockCurve block={b} />
+                <span className="block-label">
+                  {b.scale.toFixed(1)}×{b.followCursor && <em>follow</em>}
+                </span>
                 <span className="handle right" onPointerDown={(e) => beginBlockDrag(e, b.id, "right")} />
               </div>
             ))}
           </div>
 
-          <div className="playhead" style={{ left: `${pct(playhead)}%` }}>
-            <div className="playhead-grip" />
-          </div>
+          <div className="playhead" style={{ left: `${pct(playhead)}%` }} />
         </div>
       </div>
     </section>

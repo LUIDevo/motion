@@ -6,27 +6,40 @@ export interface Preset {
 }
 
 /**
- * Backdrops that read well behind a light UI recording. Deliberately low
- * contrast and desaturated — the recording is the subject, and a loud
- * background makes a demo look like a template.
+ * Backdrops for product demos.
+ *
+ * The rule throughout: low saturation, low internal contrast. A backdrop's
+ * whole job is to sit behind a recording of a UI without competing with it,
+ * and a saturated gradient does the opposite — it dates the video, fights the
+ * app's own colours, and pulls the eye away from the thing being demonstrated.
+ *
+ * Ordered light to dark, neutrals first, so the palette reads as a considered
+ * set rather than a swatch dump.
  */
 export const PRESETS: Preset[] = [
-  { name: "Paper", bg: { kind: "linear", from: "#EDEDED", to: "#DCDCDC", angle: 120 } },
-  { name: "Fog", bg: { kind: "radial", from: "#FFFFFF", to: "#D9DDE3" } },
-  { name: "Slate", bg: { kind: "linear", from: "#2B2F36", to: "#14171C", angle: 120 } },
-  { name: "Ink", bg: { kind: "radial", from: "#26303F", to: "#0B0E13" } },
-  { name: "Azure", bg: { kind: "linear", from: "#DCE7FF", to: "#AFC5F5", angle: 135 } },
-  { name: "Cobalt", bg: { kind: "linear", from: "#3B62E8", to: "#1B2C86", angle: 135 } },
-  { name: "Peach", bg: { kind: "linear", from: "#FFE3D3", to: "#F7BFA5", angle: 135 } },
-  { name: "Ember", bg: { kind: "linear", from: "#F2764B", to: "#B3341F", angle: 135 } },
-  { name: "Mint", bg: { kind: "linear", from: "#DFF3E7", to: "#A9D9C0", angle: 135 } },
-  { name: "Moss", bg: { kind: "radial", from: "#3E6B54", to: "#16261D" } },
-  { name: "Lilac", bg: { kind: "linear", from: "#EBE3FB", to: "#C3AFEC", angle: 135 } },
-  { name: "Plum", bg: { kind: "linear", from: "#6F4BC4", to: "#2E1B57", angle: 135 } },
-  { name: "Sand", bg: { kind: "solid", color: "#E8E1D5" } },
-  { name: "Bone", bg: { kind: "solid", color: "#F4F4F4" } },
-  { name: "Carbon", bg: { kind: "solid", color: "#101215" } },
-  { name: "Dusk", bg: { kind: "linear", from: "#F7C9C0", to: "#5B6BA8", angle: 160 } },
+  // Neutrals — the safe default for almost any recording.
+  { name: "Paper", bg: { kind: "linear", from: "#F2F2F0", to: "#E2E2DF", angle: 120 } },
+  { name: "Fog", bg: { kind: "radial", from: "#FFFFFF", to: "#DFE2E6" } },
+  { name: "Alabaster", bg: { kind: "linear", from: "#F6F4F0", to: "#E6E1D9", angle: 135 } },
+  { name: "Ash", bg: { kind: "linear", from: "#E4E5E7", to: "#CFD1D4", angle: 120 } },
+
+  // Cool tints — pair well with the blues most product UIs already use.
+  { name: "Mist", bg: { kind: "linear", from: "#EEF2F6", to: "#D8E1EA", angle: 135 } },
+  { name: "Porcelain", bg: { kind: "radial", from: "#F7FAFC", to: "#DCE4EC" } },
+  { name: "Steel", bg: { kind: "linear", from: "#D6DEE6", to: "#B9C4CF", angle: 135 } },
+  { name: "Denim", bg: { kind: "linear", from: "#C3D0E0", to: "#94A8C0", angle: 140 } },
+
+  // Warm tints — for recordings that are mostly white UI.
+  { name: "Linen", bg: { kind: "linear", from: "#F4EFE8", to: "#E3D9CC", angle: 135 } },
+  { name: "Sand", bg: { kind: "linear", from: "#EDE4D8", to: "#D6C7B4", angle: 140 } },
+  { name: "Sage", bg: { kind: "linear", from: "#E4EAE3", to: "#C6D2C6", angle: 135 } },
+  { name: "Blush", bg: { kind: "linear", from: "#F2E9E7", to: "#DCC9C6", angle: 140 } },
+
+  // Darks — make a light UI pop, and read well on dark social feeds.
+  { name: "Slate", bg: { kind: "linear", from: "#3A424D", to: "#232A33", angle: 135 } },
+  { name: "Graphite", bg: { kind: "radial", from: "#33383F", to: "#17191D" } },
+  { name: "Navy", bg: { kind: "linear", from: "#28344A", to: "#161D2B", angle: 135 } },
+  { name: "Espresso", bg: { kind: "linear", from: "#3B342E", to: "#211D19", angle: 135 } },
 ];
 
 /** CSS equivalent of a background, for rendering swatches in the UI. */

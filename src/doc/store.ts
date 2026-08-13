@@ -10,7 +10,7 @@ export const emptyDoc = (): Doc => ({
   output: { width: 1920, height: 1080 },
   clip: null,
   segments: [],
-  background: { kind: "linear", from: "#EDEDED", to: "#DCDCDC", angle: 120 },
+  background: { kind: "linear", from: "#F2F2F0", to: "#E2E2DF", angle: 120 },
   frame: {
     padding: 0.07,
     radius: 18,

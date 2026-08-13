@@ -265,10 +265,10 @@ function ScenePanel() {
                 const k = e.target.value;
                 setBg(
                   k === "solid"
-                    ? { kind: "solid", color: "#EDEDED" }
+                    ? { kind: "solid", color: "#ECECEA" }
                     : k === "radial"
-                      ? { kind: "radial", from: "#FFFFFF", to: "#D9DDE3" }
-                      : { kind: "linear", from: "#EDEDED", to: "#DCDCDC", angle: 120 },
+                      ? { kind: "radial", from: "#FFFFFF", to: "#DFE2E6" }
+                      : { kind: "linear", from: "#F2F2F0", to: "#E2E2DF", angle: 120 },
                 );
               }}
             >
