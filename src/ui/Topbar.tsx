@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { invoke, isTauri } from "@tauri-apps/api/core";
+import { isTauri } from "@tauri-apps/api/core";
 import { useStore } from "../doc/store";
 import { importRecording } from "../media/import";
 import { exportVideo, pickExportPath } from "../media/export";
@@ -21,7 +21,13 @@ const IconRedo = () => (
 
 const IconCursor = () => (
   <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden>
-    <path d="M4 2.4a.6.6 0 0 1 .95-.48l7.2 5.3c.44.33.24 1.03-.3 1.07l-3.2.25-1.7 3a.6.6 0 0 1-1.12-.2z" />
+    <path d="M4.2 2.6a.6.6 0 0 1 .95-.48l7.6 5.6c.44.32.24 1.02-.3 1.06l-3.4.26-1.8 3.18a.6.6 0 0 1-1.12-.2z" />
+  </svg>
+);
+
+const IconStop = () => (
+  <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden>
+    <rect x="4" y="4" width="8" height="8" rx="1.6" />
   </svg>
 );
 
@@ -112,25 +118,6 @@ export default function Topbar() {
     }
   };
 
-  // Verifies the cursor half of the recorder on its own: samples Hyprland's
-  // IPC for three seconds and reports what it saw.
-  const onCursorProbe = async () => {
-    if (!isTauri()) return;
-    setStatus({ kind: "busy", label: "Move your mouse for 3s", pct: 0 });
-    try {
-      const r = await invoke<{ samples: number; movedPx: number; monitor: string }>(
-        "cursor_probe",
-        { ms: 3000 },
-      );
-      setStatus({
-        kind: "done",
-        label: `${r.samples} samples on ${r.monitor}, moved ${r.movedPx}px`,
-      });
-    } catch (err) {
-      setStatus({ kind: "error", label: String(err) });
-    }
-  };
-
   const onExport = async () => {
     const doc = useStore.getState().doc;
     if (!doc.clip) return;
@@ -167,15 +154,24 @@ export default function Topbar() {
     <header className="topbar">
       <div className="brand">
         <span className="logo" />
-        <span className="brand-name">Motion</span>
+        <div className="brand-text">
+          <span className="brand-name">Motion</span>
+          <span className="brand-sub">Demo studio</span>
+        </div>
       </div>
 
       <div className="topbar-center">
-        {clip ? (
-          <span className="doc-title">{clip.name}</span>
-        ) : (
-          <span className="doc-title dim">Untitled</span>
-        )}
+        <div className="doc-chip">
+          <span className={clip ? "doc-title" : "doc-title dim"}>
+            {clip ? clip.name : "Untitled"}
+          </span>
+          {clip && (
+            <span className="doc-meta">
+              {clip.width}×{clip.height}
+              {clip.cursor ? " · cursor" : ""}
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="topbar-right">
@@ -197,32 +193,25 @@ export default function Topbar() {
           </span>
         )}
 
-        <button
-          className="icon-btn"
-          onClick={undo}
-          disabled={!canUndo}
-          title="Undo (Ctrl+Z)"
-        >
-          <IconUndo />
-        </button>
-        <button
-          className="icon-btn"
-          onClick={redo}
-          disabled={!canRedo}
-          title="Redo (Ctrl+Shift+Z)"
-        >
-          <IconRedo />
-        </button>
+        {/* Undo and redo are one control with two directions, so they're
+            joined rather than sitting apart like unrelated actions. */}
+        <div className="btn-group">
+          <button onClick={undo} disabled={!canUndo} title="Undo (Ctrl+Z)">
+            <IconUndo />
+          </button>
+          <button onClick={redo} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)">
+            <IconRedo />
+          </button>
+        </div>
 
-        <button className="ghost" onClick={onCursorProbe} title="Test cursor tracking">
-          <IconCursor />
-          Cursor
-        </button>
+        <span className="tb-divider" />
+
         <button
           className={recording ? "rec-btn active" : "rec-btn"}
           onClick={onRecord}
-          title={recording ? "Stop recording" : "Record the screen"}
+          title={recording ? "Stop recording" : "Record the screen and cursor"}
         >
+          {recording ? <IconStop /> : <IconCursor />}
           {recording ? "Stop" : "Record"}
         </button>
         <button className="ghost" onClick={onImport}>

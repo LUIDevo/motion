@@ -42,6 +42,28 @@ function BlockCurve({ block }: { block: ZoomBlock }) {
   );
 }
 
+const IconFilm = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden>
+    <rect x="2" y="3.5" width="12" height="9" rx="1.6" />
+    <path d="M5.4 3.5v9M10.6 3.5v9" />
+  </svg>
+);
+
+const IconZoomTrack = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden>
+    <circle cx="7.2" cy="7.2" r="4" />
+    <path d="M10.2 10.2 13.5 13.5" strokeLinecap="round" />
+    <path d="M7.2 5.6v3.2M5.6 7.2h3.2" strokeLinecap="round" />
+  </svg>
+);
+
+const IconSplit = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden>
+    <path d="M8 2v12" strokeLinecap="round" strokeDasharray="2.2 2" />
+    <path d="M3.4 5.2 6 8l-2.6 2.8M12.6 5.2 10 8l2.6 2.8" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
 type BlockMode = "move" | "left" | "right";
 
 interface BlockDrag {
@@ -211,16 +233,21 @@ export default function Timeline() {
             }}
             title="Split at playhead (S)"
           >
+            <IconSplit />
             Split
           </button>
         </div>
         <div className="track-label">
-          <span className="track-dot video" />
+          <span className="track-icon video">
+            <IconFilm />
+          </span>
           <span className="track-name">Video</span>
           <span className="count">{doc.segments.length}</span>
         </div>
         <div className="track-label">
-          <span className="track-dot zoom" />
+          <span className="track-icon zoom">
+            <IconZoomTrack />
+          </span>
           <span className="track-name">Zoom</span>
           <span className="count">{doc.blocks.length}</span>
         </div>
