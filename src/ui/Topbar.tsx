@@ -19,6 +19,28 @@ const IconRedo = () => (
   </svg>
 );
 
+const IconCursor = () => (
+  <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden>
+    <path d="M4 2.4a.6.6 0 0 1 .95-.48l7.2 5.3c.44.33.24 1.03-.3 1.07l-3.2.25-1.7 3a.6.6 0 0 1-1.12-.2z" />
+  </svg>
+);
+
+const IconImport = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+    <path d="M8 2.6v6.6" strokeLinecap="round" />
+    <path d="M5.5 6.9 8 9.4l2.5-2.5" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M3 10.6v1.3c0 .77.63 1.4 1.4 1.4h7.2c.77 0 1.4-.63 1.4-1.4v-1.3" strokeLinecap="round" />
+  </svg>
+);
+
+const IconExport = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+    <path d="M8 10V3.4" strokeLinecap="round" />
+    <path d="M5.5 5.7 8 3.2l2.5 2.5" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M3 10.6v1.3c0 .77.63 1.4 1.4 1.4h7.2c.77 0 1.4-.63 1.4-1.4v-1.3" strokeLinecap="round" />
+  </svg>
+);
+
 type Status =
   | { kind: "idle" }
   | { kind: "busy"; label: string; pct: number }
@@ -193,6 +215,7 @@ export default function Topbar() {
         </button>
 
         <button className="ghost" onClick={onCursorProbe} title="Test cursor tracking">
+          <IconCursor />
           Cursor
         </button>
         <button
@@ -203,6 +226,7 @@ export default function Topbar() {
           {recording ? "Stop" : "Record"}
         </button>
         <button className="ghost" onClick={onImport}>
+          <IconImport />
           Import
         </button>
         <button
@@ -210,6 +234,7 @@ export default function Topbar() {
           onClick={onExport}
           disabled={!clip || status.kind === "busy"}
         >
+          <IconExport />
           Export
         </button>
       </div>
