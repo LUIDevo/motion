@@ -2112,6 +2112,17 @@ input[type="checkbox"]:disabled {
   font-weight: 500;
 }
 
+/* Unsaved-changes marker. A dot rather than an asterisk in the name: it sits
+   in its own column, so the title doesn't shift as you type. */
+.doc-dirty {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex: none;
+  align-self: center;
+}
+
 .doc-meta {
   font-size: 11px;
   color: var(--text-3);

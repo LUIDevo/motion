@@ -4,6 +4,12 @@ import { useStore } from "../doc/store";
 import { importRecording } from "../media/import";
 import { exportVideo, pickExportPath } from "../media/export";
 import { startRecording, stopRecording } from "../media/record";
+import {
+  ensureSaved,
+  openProjectFile,
+  projectName,
+  saveProject,
+} from "../media/projectFile";
 import { toggleTheme, useTheme } from "../theme";
 
 const IconUndo = () => (

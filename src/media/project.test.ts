@@ -91,7 +91,7 @@ describe("openProject", () => {
     importRecordingMock.mockResolvedValue(null); // user declines
     const onMissing = vi.fn();
 
-    await openProject(serializeDoc(docWithClip("/gone/rec.webm")), {
+    await openProject(serializeDoc(docWithClip("/gone/rec.webm")), null, {
       onMissingSource: onMissing,
     });
 
@@ -100,6 +100,25 @@ describe("openProject", () => {
     // Declining still opens the project — the edits are the point, and the
     // clip stays unlinked until it can be found.
     expect(useStore.getState().doc.clip?.src).toBe("");
+  });
+
+  it("adopts the file it was opened from, and opens clean", async () => {
+    clipFromPathMock.mockResolvedValue(handle("/rec.webm"));
+
+    await openProject(serializeDoc(docWithClip("/rec.webm")), "/projects/demo.motion");
+
+    // Save must go back to this file rather than asking again, and a freshly
+    // opened project has nothing to save.
+    expect(useStore.getState().projectPath).toBe("/projects/demo.motion");
+    expect(useStore.getState().dirty).toBe(false);
+  });
+
+  it("stays unnamed when opened from text with no path", async () => {
+    clipFromPathMock.mockResolvedValue(handle("/rec.webm"));
+
+    await openProject(serializeDoc(docWithClip("/rec.webm")));
+
+    expect(useStore.getState().projectPath).toBeNull();
   });
 
   it("relinks when the located file is the same recording, keeping the cursor track", async () => {
