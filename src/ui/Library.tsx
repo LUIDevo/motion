@@ -55,11 +55,13 @@ const EFFECTS = [
   {
     id: "cursor",
     name: "Cursor",
-    desc: "Smoothed pointer and trails",
+    desc: "Glow and trail on the pointer",
     icon: <IconCursor />,
     tint: "var(--tint-blue)",
     fg: "var(--ctp-blue)",
-    ready: false,
+    ready: true,
+    /** Decorates a recorded pointer, so there has to be one. */
+    needsTrack: true,
   },
   {
     id: "click",
@@ -100,6 +102,9 @@ export default function Library() {
   const duration = useStore((s) => docDuration(s.doc));
   const addZoom = useStore((s) => s.addZoom);
   const removeBlock = useStore((s) => s.removeBlock);
+  const patch = useStore((s) => s.patchDoc);
+  const cursorStyle = useStore((s) => s.doc.cursorStyle);
+  const hasCursor = useStore((s) => (s.doc.clip?.cursor?.length ?? 0) > 0);
 
   return (
     <aside className="panel library">
@@ -114,13 +119,35 @@ export default function Library() {
 
       <Section title="Library" accent={MAUVE}>
         <div className="effect-list">
-          {EFFECTS.map((e) => (
+          {EFFECTS.map((e) => {
+            // The cursor overlay is a property of the scene, not a block on
+            // the timeline, so its card toggles rather than adds — and reads
+            // as on while it is.
+            const isCursor = e.id === "cursor";
+            const blocked = isCursor && !hasCursor;
+            const on = isCursor && cursorStyle.enabled;
+
+            return (
             <button
               key={e.id}
-              className={`effect${e.ready ? "" : " soon-card"}`}
-              disabled={!e.ready || !clip}
-              onClick={() => addZoom(playhead, { x: 0.5, y: 0.5 })}
-              title={e.ready ? `Add a ${e.name.toLowerCase()}` : "Not built yet"}
+              className={`effect${e.ready ? "" : " soon-card"}${on ? " active" : ""}`}
+              disabled={!e.ready || !clip || blocked}
+              onClick={() =>
+                isCursor
+                  ? patch({ cursorStyle: { ...cursorStyle, enabled: !cursorStyle.enabled } })
+                  : addZoom(playhead, { x: 0.5, y: 0.5 })
+              }
+              title={
+                !e.ready
+                  ? "Not built yet"
+                  : blocked
+                    ? "Only clips recorded in Motion carry a cursor track"
+                    : isCursor
+                      ? on
+                        ? "Turn the cursor overlay off"
+                        : "Turn the cursor overlay on"
+                      : `Add a ${e.name.toLowerCase()}`
+              }
             >
               {/* A tinted icon chip per effect: colour is what makes a list of
                   five similar cards scannable at a glance. */}
@@ -134,11 +161,13 @@ export default function Library() {
                 <span className="effect-name">
                   {e.name}
                   {!e.ready && <span className="soon">soon</span>}
+                  {on && <span className="soon on">on</span>}
                 </span>
                 <span className="effect-desc">{e.desc}</span>
               </span>
             </button>
-          ))}
+            );
+          })}
         </div>
       </Section>
 

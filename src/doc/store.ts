@@ -29,6 +29,17 @@ export const emptyDoc = (): Doc => ({
     ease: "spring",
     bounce: 0.3,
   },
+  cursorStyle: {
+    // Off until asked for: a clip imported from elsewhere has no cursor track,
+    // and a recorded one shouldn't gain decoration nobody chose.
+    enabled: false,
+    highlightSize: 0.06,
+    highlightOpacity: 0.3,
+    color: "#1e66f5",
+    trail: 0.35,
+    trailWidth: 0.012,
+    trailOpacity: 0.45,
+  },
   cursorSmoothing: 0.22,
 });
 
@@ -205,6 +216,9 @@ export const useStore = create<State>((set, get) => {
         // A clip with a cursor track almost always wants to follow it; that's
         // the reason for recording in the first place.
         followCursor: (doc.clip?.cursor?.length ?? 0) > 0,
+        // Off by default: chaining changes what the *previous* block does, and
+        // a new zoom shouldn't silently rewrite the shot before it.
+        chain: false,
       };
 
       commit("addZoom", (d) => ({

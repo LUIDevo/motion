@@ -142,6 +142,75 @@ function shadowSprite(
   return shadowCache;
 }
 
+/** `#rrggbb` to `rgba(r,g,b,a)`. Non-hex colours are passed through, so a
+ *  named or already-rgba value still works — it just can't be faded. */
+function withAlpha(color: string, alpha: number): string {
+  const m = /^#([0-9a-f]{6})$/i.exec(color.trim());
+  if (!m) return color;
+  const n = parseInt(m[1], 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+
+/**
+ * Decoration for the recorded pointer, in frame space.
+ *
+ * The pointer itself is already in the video — the capture embeds it — so this
+ * draws only what sits behind it: a streak for where it came from, and a glow
+ * for where it is. Called inside the frame's clip, so neither can spill past
+ * the recording's rounded corners.
+ */
+function paintCursor(ctx: CanvasRenderingContext2D, doc: Doc, frame: Rect, srcTime: number) {
+  const style = doc.cursorStyle;
+  if (!style.enabled) return;
+
+  const here = cursorAt(doc.clip, srcTime, doc.cursorSmoothing);
+  if (!here) return;
+
+  // Sizes are fractions of the framed recording rather than of the output, so
+  // the glow stays the same size relative to the content when padding changes.
+  const toX = (p: Point) => frame.x + p.x * frame.w;
+  const toY = (p: Point) => frame.y + p.y * frame.h;
+
+  ctx.save();
+
+  if (style.trail > 0 && style.trailOpacity > 0) {
+    const path = cursorTrail(doc.clip, srcTime, doc.cursorSmoothing, style.trail);
+    const width = style.trailWidth * frame.h;
+
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    // Segment at a time: a single stroke can't taper, and the taper is what
+    // makes this read as motion rather than as a line someone drew.
+    for (let i = 1; i < path.length; i++) {
+      const u = i / (path.length - 1);
+      ctx.strokeStyle = withAlpha(style.color, style.trailOpacity * u * u);
+      ctx.lineWidth = Math.max(0.5, width * u);
+      ctx.beginPath();
+      ctx.moveTo(toX(path[i - 1]), toY(path[i - 1]));
+      ctx.lineTo(toX(path[i]), toY(path[i]));
+      ctx.stroke();
+    }
+  }
+
+  if (style.highlightOpacity > 0 && style.highlightSize > 0) {
+    const r = style.highlightSize * frame.h;
+    const cx = toX(here);
+    const cy = toY(here);
+    // Fades to fully transparent at the rim: a hard-edged disc reads as a
+    // sticker on the frame, a falloff reads as light.
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    g.addColorStop(0, withAlpha(style.color, style.highlightOpacity));
+    g.addColorStop(0.55, withAlpha(style.color, style.highlightOpacity * 0.5));
+    g.addColorStop(1, withAlpha(style.color, 0));
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
 /** Placeholder shown before a recording is imported. */
 function paintEmpty(ctx: CanvasRenderingContext2D, frame: Rect, radius: number) {
   ctx.save();
@@ -220,6 +289,13 @@ export function renderFrame(
   ctx.roundRect(frame.x, frame.y, frame.w, frame.h, radius);
   ctx.clip();
   ctx.drawImage(source, frame.x, frame.y, frame.w, frame.h);
+
+  // Inside the clip and inside the camera transform: the decoration belongs to
+  // the recording, so it zooms and pans with it rather than floating over the
+  // output at a fixed size.
+  const hit = sourceAt(doc, time);
+  if (hit) paintCursor(ctx, doc, frame, hit.srcTime);
+
   ctx.restore();
 
   ctx.restore();

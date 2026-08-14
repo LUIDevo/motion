@@ -10,14 +10,24 @@ import type { ZoomBlock } from "../doc/types";
  * Reading a timeline should tell you how something moves, not just when — and
  * this is sampled from the same easing function the renderer uses.
  */
-function BlockCurve({ block }: { block: ZoomBlock }) {
+function BlockCurve({
+  block,
+  chainedIn,
+  chainedOut,
+}: {
+  block: ZoomBlock;
+  chainedIn: boolean;
+  chainedOut: boolean;
+}) {
   const len = block.end - block.start;
   if (len <= 0) return null;
 
   const w = 100;
   const h = 100;
-  const inFrac = Math.min(0.5, block.rampIn / len);
-  const outFrac = Math.min(0.5, block.rampOut / len);
+  // A chained edge has no ramp — the neighbouring gap owns that move — so the
+  // curve has to show a flat edge or it contradicts what the camera does.
+  const inFrac = chainedIn ? 0 : Math.min(0.5, block.rampIn / len);
+  const outFrac = chainedOut ? 0 : Math.min(0.5, block.rampOut / len);
 
   const pts: string[] = [];
   for (let i = 0; i <= 40; i++) {
@@ -300,7 +310,22 @@ export default function Timeline() {
           </div>
 
           <div className="lane zoom-lane" onPointerDown={() => select(null)}>
-            {doc.blocks.map((b) => (
+            {/* Drawn under the blocks: the gap between two chained zooms is
+                where the camera move happens, so it has to look occupied
+                rather than empty. */}
+            {doc.blocks.map((b, i) => {
+              const nx = doc.blocks[i + 1];
+              if (!b.chain || !nx) return null;
+              return (
+                <span
+                  key={`chain-${b.id}`}
+                  className="chain-link"
+                  style={{ left: `${pct(b.end)}%`, width: `${pct(nx.start - b.end)}%` }}
+                  title={`Camera moves to the next zoom over ${(nx.start - b.end).toFixed(1)}s`}
+                />
+              );
+            })}
+            {doc.blocks.map((b, i) => (
               <div
                 key={b.id}
                 className={`block${b.id === selectedId ? " selected" : ""}`}
@@ -310,7 +335,11 @@ export default function Timeline() {
                 title="Drag to move · edges to resize · double-click to delete"
               >
                 <span className="handle left" onPointerDown={(e) => beginBlockDrag(e, b.id, "left")} />
-                <BlockCurve block={b} />
+                <BlockCurve
+                  block={b}
+                  chainedIn={i > 0 && doc.blocks[i - 1].chain}
+                  chainedOut={!!doc.blocks[i + 1] && b.chain}
+                />
                 <span className="block-label">
                   {b.scale.toFixed(1)}×{b.followCursor && <em>follow</em>}
                 </span>

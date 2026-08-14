@@ -51,6 +51,17 @@ export interface ZoomBlock {
    * valid once it does.
    */
   followCursor: boolean;
+  /**
+   * Hand straight over to the next block instead of releasing to rest.
+   *
+   * A demo that zooms into one part of a UI and then another shouldn't pull
+   * all the way out in between — that reads as losing your place. With this
+   * set, this block drops its ramp-out, the next drops its ramp-in, and the
+   * gap between them on the timeline becomes the move from one to the other.
+   *
+   * Inert on the last block: with nothing to hand to, it ramps out as usual.
+   */
+  chain: boolean;
 }
 
 export type Block = ZoomBlock;

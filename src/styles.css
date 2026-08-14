@@ -902,6 +902,18 @@ input[type="checkbox"]:disabled {
   padding: 2px 5px;
 }
 
+/* The cursor card toggles rather than adds, so unlike its neighbours it has a
+   state to show. Same badge shape as "soon", carrying the accent instead. */
+.soon.on {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.effect.active {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+
 .layer-list {
   list-style: none;
   margin: 0;
@@ -1184,6 +1196,38 @@ input[type="checkbox"]:disabled {
 
 .block:hover {
   border-color: var(--ctp-mauve);
+}
+
+/* The camera is moving across this span, so it reads as a tensioned line
+   between two blocks rather than as empty lane. */
+.chain-link {
+  position: absolute;
+  top: 50%;
+  height: 2px;
+  transform: translateY(-1px);
+  min-width: 3px;
+  background: var(--mauve-line);
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.chain-link::before,
+.chain-link::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  margin-top: -2.5px;
+  border-radius: 50%;
+  background: var(--ctp-mauve);
+}
+
+.chain-link::before {
+  left: -1px;
+}
+.chain-link::after {
+  right: -1px;
 }
 
 .block.selected {

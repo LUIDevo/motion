@@ -3,7 +3,7 @@ import { segmentLength } from "../doc/time";
 import { EASE_NAMES } from "../render/easing";
 import { PRESETS, backgroundCss, sameBackground } from "../render/backgrounds";
 import { EaseCurve, Field, Field2, Section } from "./controls";
-import type { Background } from "../doc/types";
+import type { Background, CursorStyle } from "../doc/types";
 
 /* Section accents follow the active Catppuccin ramp. */
 const MAUVE = "var(--ctp-mauve)";
@@ -19,8 +19,27 @@ function ZoomPanel({ id }: { id: string }) {
   const hasCursor = useStore((s) => (s.doc.clip?.cursor?.length ?? 0) > 0);
   const applyToAll = useStore((s) => s.applyZoomStyle);
 
+  // Blocks are kept sorted, so the chain always hands to the one after it.
+  const next = useStore((s) => {
+    const i = s.doc.blocks.findIndex((b) => b.id === id);
+    return i >= 0 ? (s.doc.blocks[i + 1] ?? null) : null;
+  });
+  /** True when the previous block hands over to this one, which means this
+   *  block's ramp-in is not used and shouldn't be offered. */
+  const chainedIn = useStore((s) => {
+    const i = s.doc.blocks.findIndex((b) => b.id === id);
+    return i > 0 && s.doc.blocks[i - 1].chain;
+  });
+
+  // Clicking the preview only re-aims the selected block while the playhead is
+  // inside it — otherwise Stage treats the click as placing a new zoom.
+  const playhead = useStore((s) => s.playhead);
+  const aimable = playhead >= block.start && playhead <= block.end;
+
   const len = block.end - block.start;
   const maxRamp = Math.max(0.05, len / 2);
+  const chainedOut = !!next && block.chain;
+  const gap = next ? next.start - block.end : 0;
 
   return (
     <>
@@ -53,20 +72,48 @@ function ZoomPanel({ id }: { id: string }) {
             className={`toggle${block.followCursor ? " on" : ""}`}
             disabled={!hasCursor}
             onClick={() => update(id, { followCursor: !block.followCursor })}
-            title={
-              hasCursor
-                ? "Track the recorded cursor"
-                : "Only clips recorded in Motion carry a cursor track"
-            }
           >
             <span className="toggle-knob" />
             <span>Follow the cursor</span>
           </button>
-          <p className="note">
-            {block.followCursor
-              ? "The camera tracks the recorded pointer, smoothed."
-              : "Scrub into this block and click the preview to aim it."}
-          </p>
+
+          {/* Why a control is unavailable belongs on the page, not in a
+              tooltip the button is too disabled to show. */}
+          {!hasCursor && (
+            <p className="note">
+              This clip has no cursor track, so there's nothing to follow. A
+              finished video only shows a pointer — it doesn't record where it
+              was. Only recordings made in the Motion desktop app carry one.
+            </p>
+          )}
+
+          {hasCursor && block.followCursor && (
+            <p className="note">The camera tracks the recorded pointer, smoothed.</p>
+          )}
+
+          {!block.followCursor &&
+            (aimable ? (
+              <p className="note">
+                Aimed at {(block.target.x * 100).toFixed(0)}%,{" "}
+                {(block.target.y * 100).toFixed(0)}%. Click anywhere on the
+                preview to move it.
+              </p>
+            ) : (
+              <>
+                <p className="note">
+                  Aimed at {(block.target.x * 100).toFixed(0)}%,{" "}
+                  {(block.target.y * 100).toFixed(0)}%. The playhead is outside
+                  this zoom, so clicking the preview would start a new one
+                  instead of re-aiming this.
+                </p>
+                <button
+                  className="wide-btn"
+                  onClick={() => setPlayhead((block.start + block.end) / 2)}
+                >
+                  Move the playhead into this zoom
+                </button>
+              </>
+            ))}
         </Field2>
       </Section>
 
@@ -97,24 +144,62 @@ function ZoomPanel({ id }: { id: string }) {
             onChange={(v) => update(id, { bounce: v })}
           />
         )}
-        <Field
-          label="Ramp in"
-          value={Math.min(block.rampIn, maxRamp)}
-          min={0}
-          max={maxRamp}
-          step={0.05}
-          suffix="s"
-          onChange={(v) => update(id, { rampIn: v })}
-        />
-        <Field
-          label="Ramp out"
-          value={Math.min(block.rampOut, maxRamp)}
-          min={0}
-          max={maxRamp}
-          step={0.05}
-          suffix="s"
-          onChange={(v) => update(id, { rampOut: v })}
-        />
+        {chainedIn ? (
+          <p className="note">
+            The zoom before this one chains into it, so the camera arrives
+            already held — this block has no ramp in.
+          </p>
+        ) : (
+          <Field
+            label="Ramp in"
+            value={Math.min(block.rampIn, maxRamp)}
+            min={0}
+            max={maxRamp}
+            step={0.05}
+            suffix="s"
+            onChange={(v) => update(id, { rampIn: v })}
+          />
+        )}
+        {!chainedOut && (
+          <Field
+            label="Ramp out"
+            value={Math.min(block.rampOut, maxRamp)}
+            min={0}
+            max={maxRamp}
+            step={0.05}
+            suffix="s"
+            onChange={(v) => update(id, { rampOut: v })}
+          />
+        )}
+
+        {/* The gap on the timeline is the transition, so the control that
+            matters after chaining is the one you already have: drag the
+            blocks. Saying so beats adding a duration field that fights it. */}
+        <Field2
+          label="Next shot"
+          hint={chainedOut ? `${gap.toFixed(1)}s move` : next ? "releases" : "last"}
+        >
+          <button
+            className={`toggle${block.chain ? " on" : ""}`}
+            disabled={!next}
+            onClick={() => update(id, { chain: !block.chain })}
+            title={
+              next
+                ? "Go straight to the next zoom without pulling back"
+                : "Nothing after this one to hand over to"
+            }
+          >
+            <span className="toggle-knob" />
+            <span>Chain to the next zoom</span>
+          </button>
+          <p className="note">
+            {chainedOut
+              ? `The camera moves straight to the next zoom over the ${gap.toFixed(1)}s gap between them. Drag either block to change how long that takes.`
+              : next
+                ? "The camera pulls back to full view before the next zoom starts."
+                : "Chaining needs a zoom after this one."}
+          </p>
+        </Field2>
       </Section>
 
       <Section title="Apply" accent={TEAL} defaultOpen={false}>
@@ -233,6 +318,9 @@ function ScenePanel() {
     k: K,
     v: (typeof doc.zoomDefaults)[K],
   ) => patch({ zoomDefaults: { ...doc.zoomDefaults, [k]: v } });
+  const cursorStyle = doc.cursorStyle;
+  const setCursor = <K extends keyof CursorStyle>(k: K, v: CursorStyle[K]) =>
+    patch({ cursorStyle: { ...cursorStyle, [k]: v } });
 
   return (
     <>
@@ -417,9 +505,81 @@ function ScenePanel() {
             onChange={(v) => patch({ cursorSmoothing: v })}
           />
           <p className="note">
-            How much pointer jitter to average away while a zoom follows it.
-            Higher is calmer but lags fast movements.
+            How much pointer jitter to average away — this drives both the
+            overlay and any zoom that follows the cursor. Higher is calmer but
+            lags fast movements.
           </p>
+
+          <Field2 label="Overlay" hint={cursorStyle.enabled ? "on" : "off"}>
+            <button
+              className={`toggle${cursorStyle.enabled ? " on" : ""}`}
+              onClick={() => setCursor("enabled", !cursorStyle.enabled)}
+              title="Draw a glow and trail on the recorded pointer"
+            >
+              <span className="toggle-knob" />
+              <span>Highlight the pointer</span>
+            </button>
+            <p className="note">
+              The recording already contains the real pointer, so this draws
+              behind it: a glow for where it is, a streak for where it came
+              from.
+            </p>
+          </Field2>
+
+          {cursorStyle.enabled && (
+            <>
+              <Field2 label="Tint">
+                <div className="color-row">
+                  <input
+                    type="color"
+                    value={cursorStyle.color}
+                    onChange={(e) => setCursor("color", e.target.value)}
+                  />
+                </div>
+              </Field2>
+              <Field
+                label="Glow"
+                value={cursorStyle.highlightSize}
+                min={0}
+                max={0.2}
+                step={0.005}
+                onChange={(v) => setCursor("highlightSize", v)}
+              />
+              <Field
+                label="Strength"
+                value={cursorStyle.highlightOpacity}
+                min={0}
+                max={1}
+                step={0.05}
+                onChange={(v) => setCursor("highlightOpacity", v)}
+              />
+              <Field
+                label="Trail"
+                value={cursorStyle.trail}
+                min={0}
+                max={1.5}
+                step={0.05}
+                suffix="s"
+                onChange={(v) => setCursor("trail", v)}
+              />
+              <Field
+                label="Thickness"
+                value={cursorStyle.trailWidth}
+                min={0.002}
+                max={0.04}
+                step={0.002}
+                onChange={(v) => setCursor("trailWidth", v)}
+              />
+              <Field
+                label="Fade"
+                value={cursorStyle.trailOpacity}
+                min={0}
+                max={1}
+                step={0.05}
+                onChange={(v) => setCursor("trailOpacity", v)}
+              />
+            </>
+          )}
         </Section>
       )}
     </>
