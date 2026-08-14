@@ -75,3 +75,31 @@ export function cursorAt(
     y: Math.max(0, Math.min(1, sy / n / clip.height)),
   };
 }
+
+/**
+ * Where the pointer has been over the last `span` seconds, oldest first.
+ *
+ * Resampled at a fixed count rather than returning the raw samples: the
+ * recorder's rate is not something the renderer should inherit, and a constant
+ * number of points keeps the trail's cost flat and its taper even. Each point
+ * goes through the same smoothing as the live position, so the trail sits on
+ * the path the camera actually followed rather than beside it.
+ */
+export function cursorTrail(
+  clip: Clip | null,
+  srcTime: number,
+  smoothing: number,
+  span: number,
+  steps = 16,
+): Point[] {
+  if (span <= 0 || steps < 2) return [];
+
+  const out: Point[] = [];
+  for (let i = steps - 1; i >= 0; i--) {
+    const t = srcTime - (span * i) / (steps - 1);
+    if (t < 0) continue;
+    const p = cursorAt(clip, t, smoothing);
+    if (p) out.push(p);
+  }
+  return out;
+}

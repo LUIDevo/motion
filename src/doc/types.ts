@@ -114,6 +114,33 @@ export interface Clip {
 }
 
 /**
+ * The cursor overlay.
+ *
+ * The capture embeds the real pointer in the frames (see recorder.rs — the
+ * Hyprland portal won't hand back cursor metadata, so the alternative was no
+ * pointer at all). Everything here therefore draws *under* that pointer:
+ * a glow that says where to look, and a streak that says where it came from.
+ * Drawing a synthetic pointer as well would show two cursors.
+ */
+export interface CursorStyle {
+  enabled: boolean;
+  /** Radius of the soft disc under the pointer, as a fraction of the framed
+   *  recording's height. */
+  highlightSize: number;
+  /** Opacity of that disc, 0..1. 0 turns it off without losing the size. */
+  highlightOpacity: number;
+  /** Tint for both the glow and the trail. */
+  color: string;
+  /** How many seconds of movement the trail covers. 0 turns it off. */
+  trail: number;
+  /** Trail thickness at the pointer end, as a fraction of the framed
+   *  recording's height. It tapers to nothing at the tail. */
+  trailWidth: number;
+  /** Opacity of the trail at the pointer end, 0..1. */
+  trailOpacity: number;
+}
+
+/**
  * What a newly placed zoom starts out as.
  *
  * Kept on the document rather than hard-coded, because the right pace is a
@@ -140,6 +167,8 @@ export interface Doc {
   frame: FrameStyle;
   blocks: Block[];
   zoomDefaults: ZoomDefaults;
+  /** How the recorded pointer is decorated. Inert without a cursor track. */
+  cursorStyle: CursorStyle;
   /**
    * Half-width of the cursor smoothing window, in seconds. Larger values make
    * a follow-cursor camera calmer and less literal; smaller values track the

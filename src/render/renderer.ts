@@ -1,5 +1,7 @@
 import type { Background, Doc, Point } from "../doc/types";
+import { sourceAt } from "../doc/time";
 import { cameraAt, REST, type Camera } from "./camera";
+import { cursorAt, cursorTrail } from "./cursor";
 
 export interface Rect {
   x: number;

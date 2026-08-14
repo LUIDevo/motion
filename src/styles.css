@@ -104,23 +104,24 @@
   -webkit-font-smoothing: antialiased;
 }
 
-/* Catppuccin Mocha. The same skeleton as Latte, pulled darker: panels sit on
-   the base, fields rise a step, and the hairline is a base→surface0 mix.
-   Accents are Mocha's pastels, so text on them goes dark rather than white. */
+/* Dark theme — Catppuccin Mocha accents on a blacker, neutral ramp.
+   Mocha's neutrals carry a blue-purple cast, so they're replaced with darker
+   neutral grays (slightly cool, never purple); the accent colours stay true
+   Mocha, and the soft tints below are that base mixed with those accents. */
 :root[data-theme="dark"] {
-  /* Catppuccin Mocha — neutrals */
-  --ctp-base: #1e1e2e;
-  --ctp-mantle: #181825;
-  --ctp-crust: #11111b;
-  --ctp-surface0: #313244;
-  --ctp-surface1: #45475a;
-  --ctp-surface2: #585b70;
-  --ctp-overlay0: #6c7086;
-  --ctp-overlay1: #7f849c;
-  --ctp-overlay2: #9399b2;
-  --ctp-subtext0: #a6adc8;
-  --ctp-subtext1: #bac2de;
-  --ctp-text: #cdd6f4;
+  /* Neutrals — blacker, neutralised Mocha */
+  --ctp-base: #17171c;
+  --ctp-mantle: #121217;
+  --ctp-crust: #0c0c10;
+  --ctp-surface0: #2b2b33;
+  --ctp-surface1: #3c3c44;
+  --ctp-surface2: #4e4e57;
+  --ctp-overlay0: #5f5f68;
+  --ctp-overlay1: #71717b;
+  --ctp-overlay2: #84848e;
+  --ctp-subtext0: #9999a3;
+  --ctp-subtext1: #b0b0ba;
+  --ctp-text: #c6c6d0;
 
   /* Catppuccin Mocha — accents */
   --ctp-blue: #89b4fa;
@@ -141,8 +142,8 @@
   --field-hover: var(--ctp-surface1);
   --track: var(--ctp-surface1);
 
-  --line: #28293a;
-  --line-soft: #242435;
+  --line: #222229;
+  --line-soft: #1d1d23;
   --border: var(--ctp-surface0);
   --border-strong: var(--ctp-surface1);
 
@@ -153,21 +154,21 @@
   --accent: var(--ctp-blue);
   --accent-hover: #92bafa;
   --accent-active: #7ea6e6;
-  --accent-soft: #2b3046;
-  --accent-line: #5e78a8;
+  --accent-soft: #252a37;
+  --accent-line: #5b75a1;
   --on-accent: var(--ctp-crust);
 
   --danger: var(--ctp-red);
-  --danger-soft: #382b3d;
-  --danger-line: #935a71;
+  --danger-soft: #31252d;
+  --danger-line: #905769;
   --good: var(--ctp-green);
-  --good-soft: #2e363c;
+  --good-soft: #282f2c;
 
-  --mauve-soft: #332e46;
-  --mauve-line: #7d699d;
+  --mauve-soft: #2d2836;
+  --mauve-line: #7a6694;
   --mauve-chip: rgba(203, 166, 247, 0.16);
 
-  --diag-bg: rgba(17, 17, 27, 0.95);
+  --diag-bg: rgba(12, 12, 16, 0.95);
   --diag-fg: var(--ctp-text);
   --diag-accent: #a6c8ff;
 
@@ -175,11 +176,11 @@
     0 8px 24px rgba(0, 0, 0, 0.4);
 
   /* Effect icon chips (Library) */
-  --tint-mauve: #36314a;
-  --tint-blue: #2d334b;
-  --tint-peach: #3d333a;
-  --tint-teal: #2f3945;
-  --tint-green: #313a3e;
+  --tint-mauve: #302b3b;
+  --tint-blue: #272d3b;
+  --tint-peach: #372d2b;
+  --tint-teal: #283336;
+  --tint-green: #2b342f;
 
   color-scheme: dark;
 }
