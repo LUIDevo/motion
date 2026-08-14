@@ -1,13 +1,16 @@
 /*
- * Motion — light theme, Catppuccin Latte accents.
+ * Motion — two Catppuccin themes, picked by `data-theme` on <html>:
+ * Latte (light, the default) and Mocha (dark). Both draw every colour from
+ * their own ramp, so nothing on screen is a shade someone invented on the
+ * spot in one theme only.
  *
  * Flat by default. Separation is carried by hairline borders and small fill
  * changes, never by gradients, inset highlights or drop shadows — those read
  * as skeuomorphic and were what made the previous pass look heavy.
  *
  * Hierarchy comes from weight, colour and space at a nearly constant type
- * size. Every colour is drawn from the Latte ramp, so nothing on screen is a
- * shade someone invented on the spot.
+ * size. The role variables below are the only things the two themes touch;
+ * components never name a colour of their own.
  */
 
 :root {
@@ -45,6 +48,7 @@
   --track: var(--ctp-surface0);
 
   --line: #edeff3;
+  --line-soft: #f5f6f8;
   --border: var(--ctp-crust);
   --border-strong: var(--ctp-surface0);
 
@@ -57,17 +61,39 @@
   --accent-active: #1749b8;
   --accent-soft: #e8eeff;
   --accent-line: #c2d3fd;
+  --on-accent: #ffffff;
 
   --danger: var(--ctp-red);
   --danger-soft: #fce9ed;
+  --danger-line: #f0c4ce;
   --good: var(--ctp-green);
   --good-soft: #eaf5e7;
+
+  --mauve-soft: #f2eafd;
+  --mauve-line: #dcc6fa;
+  --mauve-chip: rgba(136, 57, 239, 0.14);
+
+  --diag-bg: rgba(76, 79, 105, 0.95);
+  --diag-fg: var(--ctp-base);
+  --diag-accent: #a6c8ff;
+
+  --stage-shadow: 0 1px 3px rgba(76, 79, 105, 0.1),
+    0 8px 24px rgba(76, 79, 105, 0.08);
+
+  /* Effect icon chips (Library) */
+  --tint-mauve: #f2eafd;
+  --tint-blue: #e8eeff;
+  --tint-peach: #fff0e6;
+  --tint-teal: #e6f4f3;
+  --tint-green: #eaf5e7;
 
   --r-panel: 12px;
   --r-card: 10px;
   --r-ctl: 9px;
   --r-field: 8px;
   --r-sm: 7px;
+
+  color-scheme: light;
 
   font-family: "Adwaita Sans", "Inter", ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", sans-serif;
@@ -76,6 +102,86 @@
   color: var(--text);
   letter-spacing: -0.006em;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Catppuccin Mocha. The same skeleton as Latte, pulled darker: panels sit on
+   the base, fields rise a step, and the hairline is a base→surface0 mix.
+   Accents are Mocha's pastels, so text on them goes dark rather than white. */
+:root[data-theme="dark"] {
+  /* Catppuccin Mocha — neutrals */
+  --ctp-base: #1e1e2e;
+  --ctp-mantle: #181825;
+  --ctp-crust: #11111b;
+  --ctp-surface0: #313244;
+  --ctp-surface1: #45475a;
+  --ctp-surface2: #585b70;
+  --ctp-overlay0: #6c7086;
+  --ctp-overlay1: #7f849c;
+  --ctp-overlay2: #9399b2;
+  --ctp-subtext0: #a6adc8;
+  --ctp-subtext1: #bac2de;
+  --ctp-text: #cdd6f4;
+
+  /* Catppuccin Mocha — accents */
+  --ctp-blue: #89b4fa;
+  --ctp-lavender: #b4befe;
+  --ctp-mauve: #cba6f7;
+  --ctp-red: #f38ba8;
+  --ctp-maroon: #eba0ac;
+  --ctp-peach: #fab387;
+  --ctp-yellow: #f9e2af;
+  --ctp-green: #a6e3a1;
+  --ctp-teal: #94e2d5;
+  --ctp-sky: #89dceb;
+
+  /* Roles */
+  --page: var(--ctp-mantle);
+  --panel: var(--ctp-base);
+  --field: var(--ctp-surface0);
+  --field-hover: var(--ctp-surface1);
+  --track: var(--ctp-surface1);
+
+  --line: #28293a;
+  --line-soft: #242435;
+  --border: var(--ctp-surface0);
+  --border-strong: var(--ctp-surface1);
+
+  --text: var(--ctp-text);
+  --text-2: var(--ctp-subtext0);
+  --text-3: var(--ctp-overlay1);
+
+  --accent: var(--ctp-blue);
+  --accent-hover: #92bafa;
+  --accent-active: #7ea6e6;
+  --accent-soft: #2b3046;
+  --accent-line: #5e78a8;
+  --on-accent: var(--ctp-crust);
+
+  --danger: var(--ctp-red);
+  --danger-soft: #382b3d;
+  --danger-line: #935a71;
+  --good: var(--ctp-green);
+  --good-soft: #2e363c;
+
+  --mauve-soft: #332e46;
+  --mauve-line: #7d699d;
+  --mauve-chip: rgba(203, 166, 247, 0.16);
+
+  --diag-bg: rgba(17, 17, 27, 0.95);
+  --diag-fg: var(--ctp-text);
+  --diag-accent: #a6c8ff;
+
+  --stage-shadow: 0 1px 3px rgba(0, 0, 0, 0.45),
+    0 8px 24px rgba(0, 0, 0, 0.4);
+
+  /* Effect icon chips (Library) */
+  --tint-mauve: #36314a;
+  --tint-blue: #2d334b;
+  --tint-peach: #3d333a;
+  --tint-teal: #2f3945;
+  --tint-green: #313a3e;
+
+  color-scheme: dark;
 }
 
 * {
@@ -225,7 +331,7 @@ select {
 }
 .status.rec {
   background: var(--danger);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .status.rec::before {
@@ -274,7 +380,7 @@ select {
 
 .primary-btn {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   border: 1px solid var(--accent);
   padding: 6px 15px;
 }
@@ -334,14 +440,14 @@ select {
 
 .rec-btn:hover:not(:disabled) {
   background: var(--danger-soft);
-  border-color: #f0c4ce;
+  border-color: var(--danger-line);
   color: var(--danger);
 }
 
 .rec-btn.active {
   background: var(--danger);
   border-color: var(--danger);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 /* The cursor glyph says what is actually being captured — the pointer, not
@@ -355,7 +461,7 @@ select {
 }
 
 .rec-btn.active svg {
-  color: #fff;
+  color: var(--on-accent);
   animation: rec-pulse 1.6s ease-in-out infinite;
 }
 
@@ -385,7 +491,7 @@ select {
 .icon-btn.primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   width: 32px;
   height: 32px;
 }
@@ -393,7 +499,7 @@ select {
 .icon-btn.primary:hover:not(:disabled) {
   background: var(--accent-hover);
   border-color: var(--accent-hover);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .icon-btn svg {
@@ -526,6 +632,12 @@ select:hover {
   background-color: var(--field-hover);
 }
 
+/* The chevron is drawn in the ramp's overlay colour; the data URI can't read
+   CSS variables, so dark mode gets its own copy. */
+:root[data-theme="dark"] select {
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.75L6 7.75L9 4.75' stroke='%237f849c' stroke-width='1.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
 select:focus-visible {
   outline: none;
   border-color: var(--accent);
@@ -580,8 +692,8 @@ input[type="checkbox"]:checked::after {
   content: "";
   width: 9px;
   height: 4.5px;
-  border-left: 1.8px solid #fff;
-  border-bottom: 1.8px solid #fff;
+  border-left: 1.8px solid var(--on-accent);
+  border-bottom: 1.8px solid var(--on-accent);
   transform: rotate(-45deg) translate(0.5px, -1px);
 }
 
@@ -724,7 +836,7 @@ input[type="checkbox"]:disabled {
 .chip.selected {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 /* ---------- library ---------- */
@@ -833,21 +945,20 @@ input[type="checkbox"]:disabled {
 .stage {
   display: flex;
   flex-direction: column;
-  gap: 10px;
   min-width: 0;
   min-height: 0;
 }
 
+/* Recessed: the page colour, not a panel. This is what gives the middle
+   column priority — it's the hole in the chrome, not another card. */
 .stage-viewport {
   flex: 1;
   min-height: 0;
   position: relative;
   display: grid;
   place-items: center;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--r-panel);
-  padding: 22px;
+  background: var(--page);
+  padding: 28px;
   overflow: hidden;
 }
 
@@ -858,8 +969,7 @@ input[type="checkbox"]:disabled {
   cursor: crosshair;
   /* The only shadow left in the UI. The preview genuinely is a separate object
      resting on the workspace, and it has to read that way. */
-  box-shadow: 0 1px 3px rgba(76, 79, 105, 0.1),
-    0 8px 24px rgba(76, 79, 105, 0.08);
+  box-shadow: var(--stage-shadow);
 }
 
 .hidden-video {
@@ -876,11 +986,10 @@ input[type="checkbox"]:disabled {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 0 14px;
+  padding: 0 16px;
   height: 44px;
   background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--r-panel);
+  border-top: 1px solid var(--border);
 }
 
 .timecode {
@@ -899,8 +1008,8 @@ input[type="checkbox"]:disabled {
   left: 12px;
   bottom: 12px;
   z-index: 5;
-  background: rgba(76, 79, 105, 0.95);
-  color: var(--ctp-base);
+  background: var(--diag-bg);
+  color: var(--diag-fg);
   font-family: ui-monospace, "SF Mono", monospace;
   font-size: 10.5px;
   line-height: 1.6;
@@ -912,7 +1021,7 @@ input[type="checkbox"]:disabled {
 }
 
 .diag b {
-  color: #a6c8ff;
+  color: var(--diag-accent);
   font-weight: 600;
 }
 
@@ -922,8 +1031,7 @@ input[type="checkbox"]:disabled {
   display: grid;
   grid-template-columns: 120px 1fr;
   background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--r-panel);
+  border-top: 1px solid var(--border);
   overflow: hidden;
 }
 
@@ -1060,8 +1168,8 @@ input[type="checkbox"]:disabled {
   position: absolute;
   top: 9px;
   bottom: 9px;
-  background: #f2eafd;
-  border: 1px solid #dcc6fa;
+  background: var(--mauve-soft);
+  border: 1px solid var(--mauve-line);
   border-radius: var(--r-field);
   display: flex;
   align-items: center;
@@ -1090,7 +1198,7 @@ input[type="checkbox"]:disabled {
 }
 
 .block.selected .block-label {
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .handle {
@@ -1353,7 +1461,7 @@ input[type="checkbox"]:disabled {
 .ease-chip.selected {
   background: var(--ctp-mauve);
   border-color: var(--ctp-mauve);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 /* Switch, rather than a checkbox marooned at the end of a row. */
@@ -1404,6 +1512,7 @@ input[type="checkbox"]:disabled {
 }
 
 .toggle.on .toggle-knob::after {
+  background: var(--on-accent);
   transform: translateX(13px);
 }
 
@@ -1618,7 +1727,7 @@ input[type="checkbox"]:disabled {
 }
 
 .tick.minor {
-  border-left-color: #f5f6f8;
+  border-left-color: var(--line-soft);
 }
 
 /* The playhead carries its own time, so you never have to look elsewhere to
@@ -1637,7 +1746,7 @@ input[type="checkbox"]:disabled {
   top: 5px;
   left: 5px;
   background: var(--danger);
-  color: #fff;
+  color: var(--on-accent);
   font-size: 10px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -1659,7 +1768,7 @@ input[type="checkbox"]:disabled {
 
 .clip-badge {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-size: 10.5px;
   font-weight: 600;
   padding: 1.5px 6px;
@@ -1693,7 +1802,7 @@ input[type="checkbox"]:disabled {
 }
 
 .block.selected .block-curve polyline {
-  stroke: #fff;
+  stroke: var(--on-accent);
   opacity: 0.85;
 }
 
@@ -1710,7 +1819,7 @@ input[type="checkbox"]:disabled {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  background: rgba(136, 57, 239, 0.14);
+  background: var(--mauve-chip);
   padding: 1px 4px;
   border-radius: 3px;
 }
@@ -1737,20 +1846,6 @@ input[type="checkbox"]:disabled {
 }
 
 /* ---------- topbar ---------- */
-
-.brand-text {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.15;
-}
-
-.brand-sub {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-3);
-}
 
 .topbar-center {
   display: flex;
@@ -1859,7 +1954,7 @@ input[type="checkbox"]:disabled {
 }
 
 .track-icon.zoom {
-  background: #f2eafd;
+  background: var(--mauve-soft);
   color: var(--ctp-mauve);
 }
 

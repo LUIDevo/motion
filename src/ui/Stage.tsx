@@ -4,6 +4,7 @@ import { docDuration, sourceAt } from "../doc/time";
 import type { Doc } from "../doc/types";
 import { cameraAt, REST } from "../render/camera";
 import { canvasToVideo, layout, renderFrame } from "../render/renderer";
+import { cssVar } from "../theme";
 import { fmtTime } from "./format";
 
 /**
@@ -26,14 +27,17 @@ function drawTarget(
   const py = (frame.y + target.y * frame.h - anchorY) * cam.scale + doc.output.height / 2;
 
   const r = Math.max(10, doc.output.width * 0.008);
+  // Resolved from the active ramp; the ring must stay legible over footage in
+  // both themes, and the canvas can't read var() directly.
+  const accent = cssVar("--ctp-blue", "#2C60F6");
   ctx.save();
   ctx.setTransform(viewScale, 0, 0, viewScale, 0, 0);
-  ctx.strokeStyle = "#2C60F6";
+  ctx.strokeStyle = accent;
   ctx.lineWidth = Math.max(2, r * 0.22);
   ctx.beginPath();
   ctx.arc(px, py, r, 0, Math.PI * 2);
   ctx.stroke();
-  ctx.fillStyle = "#2C60F6";
+  ctx.fillStyle = accent;
   ctx.beginPath();
   ctx.arc(px, py, r * 0.3, 0, Math.PI * 2);
   ctx.fill();
@@ -114,6 +118,10 @@ export default function Stage() {
   /** Wall-clock anchor for playback, so cuts and speed changes advance the
    *  playhead at the right rate regardless of what the source is doing. */
   const tickRef = useRef<number>(0);
+  /** Set whenever something that affects the drawn frame changes. While paused
+   *  the composition is static, so the loop draws only when this is set —
+   *  under software rendering the idle repaint cost more than playback did. */
+  const dirtyRef = useRef(true);
 
   const clip = useStore((s) => s.doc.clip);
   const output = useStore((s) => s.doc.output);

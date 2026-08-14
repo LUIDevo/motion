@@ -2,8 +2,10 @@ import { useStore } from "../doc/store";
 import { docDuration } from "../doc/time";
 import { Section } from "./controls";
 
-const MAUVE = "#8839ef";
-const TEAL = "#179299";
+/* The accent hues come from the active Catppuccin ramp, and the chips' soft
+   backgrounds from per-theme tint variables in styles.css. */
+const MAUVE = "var(--ctp-mauve)";
+const TEAL = "var(--ctp-teal)";
 
 const IconZoom = () => (
   <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
@@ -46,8 +48,8 @@ const EFFECTS = [
     name: "Zoom",
     desc: "Push the camera into a point",
     icon: <IconZoom />,
-    tint: "#f2eafd",
-    fg: MAUVE,
+    tint: "var(--tint-mauve)",
+    fg: "var(--ctp-mauve)",
     ready: true,
   },
   {
@@ -55,8 +57,8 @@ const EFFECTS = [
     name: "Cursor",
     desc: "Smoothed pointer and trails",
     icon: <IconCursor />,
-    tint: "#e8eeff",
-    fg: "#1e66f5",
+    tint: "var(--tint-blue)",
+    fg: "var(--ctp-blue)",
     ready: false,
   },
   {
@@ -64,8 +66,8 @@ const EFFECTS = [
     name: "Click ripple",
     desc: "Highlight taps and presses",
     icon: <IconClick />,
-    tint: "#fff0e6",
-    fg: "#fe640b",
+    tint: "var(--tint-peach)",
+    fg: "var(--ctp-peach)",
     ready: false,
   },
   {
@@ -73,8 +75,8 @@ const EFFECTS = [
     name: "Text",
     desc: "Callouts and titles",
     icon: <IconText />,
-    tint: "#e6f4f3",
-    fg: TEAL,
+    tint: "var(--tint-teal)",
+    fg: "var(--ctp-teal)",
     ready: false,
   },
   {
@@ -82,8 +84,8 @@ const EFFECTS = [
     name: "Blur region",
     desc: "Redact keys and names",
     icon: <IconBlur />,
-    tint: "#eaf5e7",
-    fg: "#40a02b",
+    tint: "var(--tint-green)",
+    fg: "var(--ctp-green)",
     ready: false,
   },
 ];

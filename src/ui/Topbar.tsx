@@ -4,6 +4,7 @@ import { useStore } from "../doc/store";
 import { importRecording } from "../media/import";
 import { exportVideo, pickExportPath } from "../media/export";
 import { startRecording, stopRecording } from "../media/record";
+import { toggleTheme, useTheme } from "../theme";
 
 const IconUndo = () => (
   <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
@@ -47,6 +48,24 @@ const IconExport = () => (
   </svg>
 );
 
+/* Shown while the app is light, offering the dark side. */
+const IconMoon = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+    <path d="M13.2 9.6A5.4 5.4 0 0 1 6.4 2.8a5.4 5.4 0 1 0 6.8 6.8z" strokeLinejoin="round" />
+  </svg>
+);
+
+/* Shown while the app is dark, offering the light side. */
+const IconSun = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+    <circle cx="8" cy="8" r="3.1" />
+    <path
+      d="M8 1.7v1.5M8 12.8v1.5M1.7 8h1.5M12.8 8h1.5M3.7 3.7l1.05 1.05M11.25 11.25l1.05 1.05M12.3 3.7l-1.05 1.05M4.75 11.25l-1.05 1.05"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
 type Status =
   | { kind: "idle" }
   | { kind: "busy"; label: string; pct: number }
@@ -56,6 +75,7 @@ type Status =
   | { kind: "error"; label: string };
 
 export default function Topbar() {
+  const theme = useTheme();
   const clip = useStore((s) => s.doc.clip);
   const loadClip = useStore((s) => s.loadClip);
   const setPlaying = useStore((s) => s.setPlaying);
@@ -153,11 +173,7 @@ export default function Topbar() {
   return (
     <header className="topbar">
       <div className="brand">
-        <span className="logo" />
-        <div className="brand-text">
-          <span className="brand-name">Motion</span>
-          <span className="brand-sub">Demo studio</span>
-        </div>
+        <span className="brand-name">Motion</span>
       </div>
 
       <div className="topbar-center">
@@ -205,6 +221,15 @@ export default function Topbar() {
         </div>
 
         <span className="tb-divider" />
+
+        <button
+          className="icon-btn"
+          onClick={() => toggleTheme()}
+          title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          aria-label="Toggle dark mode"
+        >
+          {theme === "dark" ? <IconSun /> : <IconMoon />}
+        </button>
 
         <button
           className={recording ? "rec-btn active" : "rec-btn"}

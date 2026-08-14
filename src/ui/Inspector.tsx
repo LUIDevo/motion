@@ -5,10 +5,11 @@ import { PRESETS, backgroundCss, sameBackground } from "../render/backgrounds";
 import { EaseCurve, Field, Field2, Section } from "./controls";
 import type { Background } from "../doc/types";
 
-const MAUVE = "#8839ef";
-const BLUE = "#1e66f5";
-const TEAL = "#179299";
-const PEACH = "#fe640b";
+/* Section accents follow the active Catppuccin ramp. */
+const MAUVE = "var(--ctp-mauve)";
+const BLUE = "var(--ctp-blue)";
+const TEAL = "var(--ctp-teal)";
+const PEACH = "var(--ctp-peach)";
 
 function ZoomPanel({ id }: { id: string }) {
   const block = useStore((s) => s.doc.blocks.find((b) => b.id === id))!;
