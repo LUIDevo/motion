@@ -83,6 +83,19 @@ export type Background =
   | { kind: "radial"; from: string; to: string };
 
 /**
+ * How much of the source to crop away from each edge, normalised 0..1 of the
+ * source frame. The kept region is scaled to fill the frame, so cropping is
+ * non-destructive and fully reversible — nothing touches the file, exactly
+ * like cutting the timeline.
+ */
+export interface Crop {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+
+/**
  * One piece of the source video on the timeline.
  *
  * Cutting never touches the file: a split just becomes two segments over the
@@ -174,6 +187,8 @@ export interface Doc {
   clip: Clip | null;
   /** Ordered cuts of the source. Empty until a recording is imported. */
   segments: Segment[];
+  /** Edges cropped off the source. The kept region fills the frame. */
+  crop: Crop;
   background: Background;
   frame: FrameStyle;
   blocks: Block[];

@@ -3,13 +3,14 @@ import { segmentLength } from "../doc/time";
 import { EASE_NAMES } from "../render/easing";
 import { PRESETS, backgroundCss, sameBackground } from "../render/backgrounds";
 import { EaseCurve, Field, Field2, Section } from "./controls";
-import type { Background, CursorStyle } from "../doc/types";
+import type { Background, Crop, CursorStyle } from "../doc/types";
 
 /* Section accents follow the active Catppuccin ramp. */
 const MAUVE = "var(--ctp-mauve)";
 const BLUE = "var(--ctp-blue)";
 const TEAL = "var(--ctp-teal)";
 const PEACH = "var(--ctp-peach)";
+const GREEN = "var(--ctp-green)";
 
 function ZoomPanel({ id }: { id: string }) {
   const block = useStore((s) => s.doc.blocks.find((b) => b.id === id))!;
@@ -305,6 +306,72 @@ function FramePreview() {
   );
 }
 
+/** What the crop keeps: a lit rectangle inside a dimmed source frame. The
+ *  kept region is scaled to fill the frame, so this is exactly what you'll
+ *  see on the stage — judging by eye rather than by four numbers. */
+function CropPreview({ crop }: { crop: Crop }) {
+  const left = crop.left * 100;
+  const top = crop.top * 100;
+  const w = Math.max(0.5, 100 - left - crop.right * 100);
+  const h = Math.max(0.5, 100 - top - crop.bottom * 100);
+
+  return (
+    <div className="crop-preview">
+      <div
+        className="crop-preview-keep"
+        style={{ left: `${left}%`, top: `${top}%`, width: `${w}%`, height: `${h}%` }}
+      />
+    </div>
+  );
+}
+
+const CROP_EDGES: { key: keyof Crop; label: string }[] = [
+  { key: "left", label: "Left" },
+  { key: "right", label: "Right" },
+  { key: "top", label: "Top" },
+  { key: "bottom", label: "Bottom" },
+];
+
+function CropPanel() {
+  const doc = useStore((s) => s.doc);
+  const patch = useStore((s) => s.patchDoc);
+  const crop = doc.crop;
+  const setEdge = (k: keyof Crop, v: number) => patch({ crop: { ...crop, [k]: v } });
+  const active = crop.left + crop.right + crop.top + crop.bottom > 0;
+
+  return (
+    <Section title="Crop" accent={GREEN}>
+      <CropPreview crop={crop} />
+      <div className="crop-grid">
+        {CROP_EDGES.map(({ key, label }) => (
+          <Field
+            key={key}
+            label={label}
+            value={crop[key] * 100}
+            min={0}
+            max={85}
+            step={1}
+            suffix="%"
+            onChange={(v) => setEdge(key, v / 100)}
+          />
+        ))}
+      </div>
+      <button
+        className="wide-btn"
+        disabled={!active}
+        onClick={() => patch({ crop: { top: 0, right: 0, bottom: 0, left: 0 } })}
+      >
+        Reset crop
+      </button>
+      <p className="note">
+        Crops the edges off the recording — the kept region fills the frame.
+        Like cutting the timeline, it never touches the source file, so you can
+        undo your way back.
+      </p>
+    </Section>
+  );
+}
+
 function ScenePanel() {
   const doc = useStore((s) => s.doc);
   const patch = useStore((s) => s.patchDoc);
@@ -436,6 +503,8 @@ function ScenePanel() {
           onChange={(v) => setFrame("shadowBlur", v)}
         />
       </Section>
+
+      {doc.clip && <CropPanel />}
 
       <Section title="New zooms" accent={MAUVE}>
         <EaseCurve name={doc.zoomDefaults.ease} bounce={doc.zoomDefaults.bounce} />

@@ -1,5 +1,5 @@
 import type { Background, Doc, Point } from "../doc/types";
-import { sourceAt } from "../doc/time";
+import { sourceAt, srcToFramePoint } from "../doc/time";
 import { cameraAt, REST, type Camera } from "./camera";
 import { cursorAt, cursorTrail } from "./cursor";
 import { add, mark } from "./profile";
@@ -9,6 +9,30 @@ export interface Rect {
   y: number;
   w: number;
   h: number;
+}
+
+/**
+ * The kept region of the source after cropping, in source pixels.
+ *
+ * Crop values are fractions of the full source frame; clamping keeps a
+ * user who over-drags the numbers from producing a negative or zero region.
+ * The kept region is what gets scaled into the frame rect, so crop reads as
+ * "zoom into this part of the source" — edges are cut off, nothing distorts.
+ */
+export function sourceRect(doc: Doc): { sx: number; sy: number; sw: number; sh: number } {
+  const clip = doc.clip;
+  if (!clip) return { sx: 0, sy: 0, sw: 1, sh: 1 };
+
+  const left = Math.min(0.85, Math.max(0, doc.crop.left));
+  const right = Math.min(0.85, Math.max(0, doc.crop.right));
+  const top = Math.min(0.85, Math.max(0, doc.crop.top));
+  const bottom = Math.min(0.85, Math.max(0, doc.crop.bottom));
+
+  const sx = left * clip.width;
+  const sy = top * clip.height;
+  const sw = Math.max(1, clip.width * (1 - left - right));
+  const sh = Math.max(1, clip.height * (1 - top - bottom));
+  return { sx, sy, sw, sh };
 }
 
 /**
@@ -167,10 +191,12 @@ function paintCursor(ctx: CanvasRenderingContext2D, doc: Doc, frame: Rect, srcTi
   const here = cursorAt(doc.clip, srcTime, doc.cursorSmoothing);
   if (!here) return;
 
-  // Sizes are fractions of the framed recording rather than of the output, so
-  // the glow stays the same size relative to the content when padding changes.
-  const toX = (p: Point) => frame.x + p.x * frame.w;
-  const toY = (p: Point) => frame.y + p.y * frame.h;
+  // Cursor samples are in full-source space; the frame shows the cropped
+  // region, so positions have to be re-based into it or a cropped edge would
+  // pull the decoration off the visible content. The trail points go through
+  // the same mapping, so they stay glued to the pointer's path.
+  const toX = (p: Point) => frame.x + srcToFramePoint(doc, p).x * frame.w;
+  const toY = (p: Point) => frame.y + srcToFramePoint(doc, p).y * frame.h;
 
   ctx.save();
 
@@ -297,7 +323,10 @@ export function renderFrame(
   ctx.beginPath();
   ctx.roundRect(frame.x, frame.y, frame.w, frame.h, radius);
   ctx.clip();
-  ctx.drawImage(source, frame.x, frame.y, frame.w, frame.h);
+  // Nine-argument drawImage: the crop lives here, so preview and export agree
+  // without either knowing the source's layout.
+  const src = sourceRect(doc);
+  ctx.drawImage(source, src.sx, src.sy, src.sw, src.sh, frame.x, frame.y, frame.w, frame.h);
   add("video", tVideo);
 
   // Inside the clip and inside the camera transform: the decoration belongs to

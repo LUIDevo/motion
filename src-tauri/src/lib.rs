@@ -2,6 +2,7 @@ use tauri::Manager;
 
 mod export;
 mod media_server;
+mod project;
 mod proxy;
 #[cfg(target_os = "linux")]
 mod cursor;
@@ -29,6 +30,8 @@ pub fn run() {
             export::ffmpeg_available,
             proxy::make_proxy,
             media_server::media_url,
+            project::project_open,
+            project::project_save,
             #[cfg(target_os = "linux")]
             recorder::capture_probe,
             #[cfg(target_os = "linux")]

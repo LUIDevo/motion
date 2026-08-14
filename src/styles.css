@@ -189,6 +189,23 @@
   box-sizing: border-box;
 }
 
+/* An app is not a document. Dragging across the timeline or scrubbing a
+   number must not drag a text selection along with it, so selection is off
+   everywhere by default and switched back on only where it has a job:
+   editing values, or copying text out of the diagnostics overlay. */
+* {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+input,
+textarea,
+[contenteditable="true"],
+.diag {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
 body {
   margin: 0;
   background: var(--page);
@@ -1111,7 +1128,9 @@ input[type="checkbox"]:disabled {
 
 .timeline {
   display: grid;
-  grid-template-columns: 120px 1fr;
+  /* Wide enough for the video-track controls (split, in, out, cut) to sit on
+     one row above the track names. */
+  grid-template-columns: 176px 1fr;
   background: var(--panel);
   border-top: 1px solid var(--border);
   overflow: hidden;
@@ -1128,7 +1147,32 @@ input[type="checkbox"]:disabled {
   border-bottom: 1px solid var(--line);
   display: flex;
   align-items: center;
-  padding-left: 14px;
+  gap: 3px;
+  padding-left: 12px;
+  overflow: hidden;
+}
+
+/* The cut controls read as one group: split is about where to cut, in/out
+   bracket the range, and cut removes it. The armed state previews the
+   consequence — red is the colour of removal everywhere else in this app. */
+.mini.mark,
+.mini.cut {
+  padding: 3px 6px;
+  color: var(--text-3);
+}
+
+.mini.mark.active {
+  color: var(--ctp-green);
+}
+
+.mini.cut.armed {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: var(--on-accent);
+}
+
+.mini.cut.armed svg {
+  color: var(--on-accent);
 }
 
 .track-label {
@@ -1651,6 +1695,37 @@ input[type="checkbox"]:disabled {
   background: var(--panel);
 }
 
+/* The crop preview mirrors the frame preview's job: you judge the crop by
+   looking, not by adding four numbers in your head. The dimmed surround is
+   the removed edges; the lit rectangle is what fills the frame. */
+.crop-preview {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--r-field);
+  border: 1px dashed var(--border-strong);
+  background: var(--field);
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+.crop-preview-keep {
+  position: absolute;
+  background: var(--panel);
+  border: 1.5px solid var(--ctp-green);
+  border-radius: 3px;
+  box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.45);
+}
+
+/* Crop edges are four related numbers; a 2×2 grid reads as a frame rather
+   than as a list. */
+.crop-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 14px;
+  margin-bottom: 14px;
+}
+
 .stat-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1867,6 +1942,51 @@ input[type="checkbox"]:disabled {
   padding: 1.5px 5px;
   border-radius: 4px;
   white-space: nowrap;
+}
+
+/* In/out markers sit on the ruler like the playhead, but read as brackets
+   rather than as a play position — the range they frame is the cut. */
+.ruler-mark {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-left: 2px solid var(--ctp-green);
+  pointer-events: none;
+  z-index: 4;
+}
+
+.ruler-mark::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -4px;
+  width: 9px;
+  height: 6px;
+  border-radius: 0 0 3px 3px;
+  background: var(--ctp-green);
+}
+
+.ruler-mark.out {
+  border-color: var(--danger);
+}
+
+.ruler-mark.out::after {
+  background: var(--danger);
+}
+
+/* The marked range, shaded across both lanes. Drawn under the clip bars so
+   the footage stays readable; the dimming says this time is going away. */
+.cut-range {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--danger-soft);
+  border-left: 1.5px solid var(--danger);
+  border-right: 1.5px solid var(--danger);
+  opacity: 0.75;
+  pointer-events: none;
+  z-index: 0;
 }
 
 .clip-bar {

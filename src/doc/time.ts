@@ -1,4 +1,4 @@
-import type { Doc, Segment } from "./types";
+import type { Doc, Point, Segment } from "./types";
 
 /** How long a segment occupies on the timeline, after its speed is applied. */
 export const segmentLength = (s: Segment) =>
@@ -53,4 +53,17 @@ export function segmentOffset(doc: Doc, index: number): number {
     offset += segmentLength(doc.segments[i]);
   }
   return offset;
+}
+
+/** Normalise a point in the full source frame into the kept (cropped) region.
+ *  Used wherever source-space points meet frame-space math — the cursor
+ *  overlay, follow-cursor camera, anywhere else that needs the two to agree. */
+export function srcToFramePoint(doc: Doc, p: Point): Point {
+  const c = doc.crop;
+  const w = Math.max(1e-6, 1 - c.left - c.right);
+  const h = Math.max(1e-6, 1 - c.top - c.bottom);
+  return {
+    x: Math.max(0, Math.min(1, (p.x - c.left) / w)),
+    y: Math.max(0, Math.min(1, (p.y - c.top) / h)),
+  };
 }

@@ -93,6 +93,39 @@ export interface ImportHooks {
 }
 
 /**
+ * Resolve a file on disk to a playable clip, transcoding to a VP9 proxy when
+ * the webview can't decode the source. Shared by the import picker and by
+ * project relinking, so both paths get the same codec fallback.
+ *
+ * Only the runtime handle comes back — `cursor` is always null here. A project
+ * that persisted a cursor track keeps its own copy when relinking.
+ */
+export async function clipFromPath(path: string, hooks: ImportHooks = {}): Promise<Clip> {
+  const name = path.split("/").pop() ?? path;
+
+  // Fast path: if the webview plays it, use the original and skip transcoding.
+  try {
+    const direct = await mediaUrl(path);
+    const meta = await probe(direct);
+    return { src: direct, path, name, proxied: false, cursor: null, ...meta };
+  } catch (err) {
+    if (!(err instanceof CodecError)) throw err;
+  }
+
+  const channel = new Channel<ProxyProgress>();
+  channel.onmessage = (p) => hooks.onProxy?.(p);
+
+  const proxyPath = await invoke<string>("make_proxy", {
+    src: path,
+    onProgress: channel,
+  });
+
+  const proxySrc = await mediaUrl(proxyPath);
+  const meta = await probe(proxySrc);
+  return { src: proxySrc, path, name, proxied: true, cursor: null, ...meta };
+}
+
+/**
  * Pick a recording to work on. Uses the native dialog under Tauri and a plain
  * file input in the browser, so `npm run dev` stays usable for UI work without
  * booting the whole desktop shell.
@@ -111,26 +144,5 @@ export async function importRecording(hooks: ImportHooks = {}): Promise<Clip | n
   });
   if (typeof picked !== "string") return null;
 
-  const name = picked.split("/").pop() ?? picked;
-
-  // Fast path: if the webview plays it, use the original and skip transcoding.
-  try {
-    const direct = await mediaUrl(picked);
-    const meta = await probe(direct);
-    return { src: direct, path: picked, name, proxied: false, cursor: null, ...meta };
-  } catch (err) {
-    if (!(err instanceof CodecError)) throw err;
-  }
-
-  const channel = new Channel<ProxyProgress>();
-  channel.onmessage = (p) => hooks.onProxy?.(p);
-
-  const proxyPath = await invoke<string>("make_proxy", {
-    src: picked,
-    onProgress: channel,
-  });
-
-  const proxySrc = await mediaUrl(proxyPath);
-  const meta = await probe(proxySrc);
-  return { src: proxySrc, path: picked, name, proxied: true, cursor: null, ...meta };
+  return clipFromPath(picked, hooks);
 }

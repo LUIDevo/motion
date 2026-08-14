@@ -1,5 +1,5 @@
 import type { Block, Doc, Point } from "../doc/types";
-import { sourceAt } from "../doc/time";
+import { sourceAt, srcToFramePoint } from "../doc/time";
 import { cursorAt } from "./cursor";
 import { ease, lerp } from "./easing";
 
@@ -73,8 +73,12 @@ function targetOf(doc: Doc, block: Block, t: number): Point {
   if (!hit) return block.target;
 
   // Falls back to the fixed target when the track doesn't cover this moment,
-  // rather than snapping the camera somewhere arbitrary.
-  return cursorAt(doc.clip, hit.srcTime, doc.cursorSmoothing) ?? block.target;
+  // rather than snapping the camera somewhere arbitrary. The cursor position
+  // lives in full-source space, so a crop re-bases it into the kept region —
+  // the camera centres on what's actually on screen.
+  const p = cursorAt(doc.clip, hit.srcTime, doc.cursorSmoothing);
+  if (!p) return block.target;
+  return srcToFramePoint(doc, p);
 }
 
 /**

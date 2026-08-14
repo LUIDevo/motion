@@ -10,6 +10,7 @@ export const emptyDoc = (): Doc => ({
   output: { width: 1920, height: 1080 },
   clip: null,
   segments: [],
+  crop: { top: 0, right: 0, bottom: 0, left: 0 },
   background: { kind: "linear", from: "#F2F2F0", to: "#E2E2DF", angle: 120 },
   frame: {
     padding: 0.07,
@@ -96,13 +97,34 @@ function freeSpan(doc: Doc, at: number): { start: number; end: number } | null {
 
 interface State {
   doc: Doc;
+  /** Whether the document has changes that haven't been saved. Set only by
+   *  [`commit`] — every mutation funnels through it — and cleared when a
+   *  document is loaded. */
+  dirty: boolean;
+  /** File this document was last read from or written to, if any. Null for a
+   *  document that has never been saved, which is what makes Save fall back to
+   *  Save As rather than needing a separate "is this new?" flag. */
+  projectPath: string | null;
   hist: History;
   playhead: number;
   playing: boolean;
   selectedId: string | null;
   selectedSegmentId: string | null;
+  /**
+   * Bounds of the range to cut out of the timeline, in timeline time.
+   * Kept off the document: like the playhead they're an editing aid, not
+   * something a project should serialise.
+   */
+  inPoint: number | null;
+  outPoint: number | null;
 
   loadClip: (clip: Clip) => void;
+  /** Replace the whole document with a loaded project. The undo stack is
+   *  dropped rather than kept: undoing after a load would walk back into the
+   *  previous document's edits. */
+  openDoc: (doc: Doc, path?: string | null) => void;
+  /** Record that the current document now matches what's on disk at `path`. */
+  markSaved: (path: string) => void;
   setPlayhead: (t: number) => void;
   setPlaying: (p: boolean) => void;
   select: (id: string | null) => void;
@@ -117,6 +139,11 @@ interface State {
   trimSegment: (id: string, srcStart: number, srcEnd: number) => void;
   setSegmentSpeed: (id: string, speed: number) => void;
   removeSegment: (id: string) => void;
+
+  setInPoint: () => void;
+  setOutPoint: () => void;
+  clearMarkers: () => void;
+  cutRange: () => void;
 
   patchDoc: (patch: Partial<Doc>) => void;
   applyZoomStyle: (id: string) => void;
@@ -138,29 +165,36 @@ export const useStore = create<State>((set, get) => {
     const s = get();
     const nd = next(s.doc);
     if (!nd || nd === s.doc) return;
-    set({ doc: nd, hist: push(s.hist, s.doc, label) });
+    set({ doc: nd, hist: push(s.hist, s.doc, label), dirty: true });
   };
 
   /** After a history jump the selection or playhead may point at something
    *  that no longer exists in the restored document. */
   const reconcile = (doc: Doc) => {
     const s = get();
+    const dur = docDuration(doc);
     return {
-      playhead: Math.max(0, Math.min(docDuration(doc), s.playhead)),
+      playhead: Math.max(0, Math.min(dur, s.playhead)),
       selectedId: doc.blocks.some((b) => b.id === s.selectedId) ? s.selectedId : null,
       selectedSegmentId: doc.segments.some((x) => x.id === s.selectedSegmentId)
         ? s.selectedSegmentId
         : null,
+      inPoint: s.inPoint == null ? null : Math.min(s.inPoint, dur),
+      outPoint: s.outPoint == null ? null : Math.min(s.outPoint, dur),
     };
   };
 
   return {
     doc: emptyDoc(),
+    dirty: false,
+    projectPath: null,
     hist: emptyHistory(),
     playhead: 0,
     playing: false,
     selectedId: null,
     selectedSegmentId: null,
+    inPoint: null,
+    outPoint: null,
 
     loadClip: (clip) =>
       set((s) => ({
@@ -171,6 +205,7 @@ export const useStore = create<State>((set, get) => {
           clip,
           output: { width: clip.width, height: clip.height },
           segments: [{ id: uid(), srcStart: 0, srcEnd: clip.duration, speed: 1 }],
+          crop: { top: 0, right: 0, bottom: 0, left: 0 },
           blocks: [],
         },
         // Importing starts a new piece of work; undoing back into the previous
@@ -180,7 +215,30 @@ export const useStore = create<State>((set, get) => {
         playing: false,
         selectedId: null,
         selectedSegmentId: null,
+        inPoint: null,
+        outPoint: null,
       })),
+
+    openDoc: (doc, path = null) =>
+      set({
+        doc,
+        projectPath: path,
+        // A loaded project inheriting the previous document's undo stack
+        // would let you undo into the old project, so the history starts
+        // fresh with the file as its base.
+        hist: emptyHistory(),
+        playhead: 0,
+        playing: false,
+        selectedId: null,
+        selectedSegmentId: null,
+        inPoint: null,
+        outPoint: null,
+        // The file it was just read from is the baseline; only edits after
+        // this point make it dirty.
+        dirty: false,
+      }),
+
+    markSaved: (path) => set({ projectPath: path, dirty: false }),
 
     setPlayhead: (t) =>
       set((s) => ({ playhead: Math.max(0, Math.min(docDuration(s.doc), t)) })),
@@ -299,6 +357,95 @@ export const useStore = create<State>((set, get) => {
         return { ...d, segments };
       });
       if (newId) set({ selectedSegmentId: newId, selectedId: null });
+    },
+
+    setInPoint: () =>
+      set((s) => ({
+        inPoint: s.playhead,
+        // A range needs in < out; moving the start past the end throws the
+        // end away rather than leaving an inverted range behind.
+        outPoint: s.outPoint != null && s.outPoint <= s.playhead ? null : s.outPoint,
+      })),
+
+    setOutPoint: () =>
+      set((s) => ({
+        outPoint: s.playhead,
+        inPoint: s.inPoint != null && s.inPoint >= s.playhead ? null : s.inPoint,
+      })),
+
+    clearMarkers: () => set({ inPoint: null, outPoint: null }),
+
+    /**
+     * Cut the marked range out of the timeline. Every moment inside the range
+     * is removed, the tail slides left to close the gap, and anything aimed
+     * at the removed time (zoom blocks) is trimmed or shifted to match.
+     */
+    cutRange: () => {
+      const { inPoint, outPoint } = get();
+      if (inPoint == null || outPoint == null || outPoint - inPoint < MIN_SEGMENT) {
+        return;
+      }
+
+      const inT = inPoint;
+      const outT = outPoint;
+      const cutLen = outT - inT;
+
+      commit("cutRange", (d) => {
+        if (!d.clip || d.segments.length === 0) return null;
+
+        // Rebuild the segment list without the covered source time. A segment
+        // that spans the range is split into its kept halves; one fully inside
+        // it disappears entirely. Both are pure bookkeeping on the source
+        // range, so the file is never touched.
+        const segments: Segment[] = [];
+        let offset = 0;
+        for (const seg of d.segments) {
+          const len = segmentLength(seg);
+          const start = offset;
+          const end = offset + len;
+
+          if (start < inT) {
+            const cut = Math.min(len, inT - start);
+            const left: Segment = { ...seg, srcEnd: seg.srcStart + cut * seg.speed };
+            if (segmentLength(left) >= MIN_SEGMENT) segments.push(left);
+          }
+          if (end > outT) {
+            const cut = Math.max(0, outT - start);
+            const right: Segment = { ...seg, id: uid(), srcStart: seg.srcStart + cut * seg.speed };
+            if (segmentLength(right) >= MIN_SEGMENT) segments.push(right);
+          }
+          offset += len;
+        }
+
+        if (segments.length === 0) return null;
+        // A range that covers no segments is a no-op; don't record history for
+        // something that changed nothing.
+        const same =
+          segments.length === d.segments.length &&
+          segments.every((x, i) => x.id === d.segments[i].id);
+        if (same) return null;
+
+        // Zoom blocks live in timeline time, so the cut moves them. Fully
+        // before: untouched. Fully after: shift left by the cut. Inside: gone.
+        // Straddling either edge: clamp the offending edge to the cut so the
+        // block keeps covering content it still exists for.
+        const blocks = d.blocks
+          .map((b): Block | null => {
+            if (b.end <= inT) return b;
+            if (b.start >= outT) {
+              return { ...b, start: b.start - cutLen, end: b.end - cutLen };
+            }
+            const s2 = b.start <= inT ? b.start : inT;
+            const e2 = b.end >= outT ? b.end - cutLen : inT;
+            return { ...b, start: s2, end: e2 };
+          })
+          .filter((b): b is Block => !!b && b.end - b.start >= 0.3)
+          .sort((a, b) => a.start - b.start);
+
+        return { ...d, segments, blocks };
+      });
+
+      set({ ...reconcile(get().doc), inPoint: null, outPoint: null });
     },
 
     trimSegment: (id, srcStart, srcEnd) =>

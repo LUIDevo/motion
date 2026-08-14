@@ -66,6 +66,31 @@ const IconSun = () => (
   </svg>
 );
 
+const IconOpen = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+    <path
+      d="M2.2 12.2V4.4c0-.5.4-.9.9-.9h2.8l1.3 1.6h4.7c.5 0 .9.4.9.9v1"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M2.2 12.2 3.9 7.4c.1-.4.5-.6.9-.6h9c.6 0 1 .6.8 1.2l-1.4 4.2c-.1.4-.5.6-.9.6H3.1a.9.9 0 0 1-.9-.6z"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+const IconSave = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+    <path
+      d="M3.4 2.6h7l2.2 2.2v8.6c0 .3-.3.6-.6.6H3.4a.6.6 0 0 1-.6-.6V3.2c0-.3.3-.6.6-.6z"
+      strokeLinejoin="round"
+    />
+    <path d="M5.4 2.6v3.6h4.6V2.6" strokeLinejoin="round" />
+    <path d="M5.4 9.6h5.2v4.4H5.4z" strokeLinejoin="round" />
+  </svg>
+);
+
 type Status =
   | { kind: "idle" }
   | { kind: "busy"; label: string; pct: number }
@@ -77,15 +102,54 @@ type Status =
 export default function Topbar() {
   const theme = useTheme();
   const clip = useStore((s) => s.doc.clip);
+  const crop = useStore((s) => s.doc.crop);
   const loadClip = useStore((s) => s.loadClip);
   const setPlaying = useStore((s) => s.setPlaying);
   const undo = useStore((s) => s.undo);
   const redo = useStore((s) => s.redo);
   const canUndo = useStore((s) => s.hist.past.length > 0);
   const canRedo = useStore((s) => s.hist.future.length > 0);
+  const dirty = useStore((s) => s.dirty);
+  const projectPath = useStore((s) => s.projectPath);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [recording, setRecording] = useState(false);
   const [showError, setShowError] = useState(false);
+
+  const name = projectName(projectPath);
+
+  const onSave = async () => {
+    try {
+      if (await saveProject()) setStatus({ kind: "done", label: "Saved" });
+    } catch (err) {
+      setStatus({ kind: "error", label: err instanceof Error ? err.message : String(err) });
+    }
+  };
+
+  const onOpen = async () => {
+    // A project carries its own edits; losing unsaved ones to a file dialog is
+    // the kind of thing you only forgive an app once.
+    if (!(await ensureSaved())) return;
+    try {
+      setStatus({ kind: "idle" });
+      await openProjectFile({
+        onProxy: (p) =>
+          setStatus({
+            kind: "busy",
+            label: "Converting for playback",
+            pct: Math.round(p.fraction * 100),
+          }),
+        onMissingSource: (path) =>
+          setStatus({
+            kind: "busy",
+            label: `Can't find ${path.split("/").pop()} — locate it`,
+            pct: 0,
+          }),
+      });
+      setStatus({ kind: "idle" });
+    } catch (err) {
+      setStatus({ kind: "error", label: err instanceof Error ? err.message : String(err) });
+    }
+  };
 
   const onImport = async () => {
     try {
@@ -177,17 +241,26 @@ export default function Topbar() {
         <span className="brand-name">Motion</span>
       </div>
 
+      {/* The chip names the *project* now that there is one to name. The clip
+          moves to the meta line: which recording is loaded matters, but it is
+          no longer what the document is called. */}
       <div className="topbar-center">
         <div className="doc-chip">
-          <span className={clip ? "doc-title" : "doc-title dim"}>
-            {clip ? clip.name : "Untitled"}
+          <span className={name ? "doc-title" : "doc-title dim"}>
+            {name ?? "Untitled"}
           </span>
-          {clip && (
-            <span className="doc-meta">
-              {clip.width}×{clip.height}
-              {clip.cursor ? " · cursor" : ""}
-            </span>
-          )}
+          {dirty && <span className="doc-dirty" title="Unsaved changes" />}
+          <span className="doc-meta">
+            {clip ? (
+              <>
+                {clip.name} · {clip.width}×{clip.height}
+                {crop.left + crop.right + crop.top + crop.bottom > 0 && " · cropped"}
+                {clip.cursor ? " · cursor" : ""}
+              </>
+            ) : (
+              "No recording"
+            )}
+          </span>
         </div>
       </div>
 
@@ -238,6 +311,23 @@ export default function Topbar() {
             )}
           </>
         )}
+
+        {/* Project file actions, joined for the same reason as undo/redo:
+            one concern, two directions. */}
+        <div className="btn-group">
+          <button onClick={onOpen} title="Open a project (Ctrl+O)">
+            <IconOpen />
+          </button>
+          <button
+            onClick={onSave}
+            disabled={!dirty && !!projectPath}
+            title={projectPath ? "Save (Ctrl+S)" : "Save as… (Ctrl+S)"}
+          >
+            <IconSave />
+          </button>
+        </div>
+
+        <span className="tb-divider" />
 
         {/* Undo and redo are one control with two directions, so they're
             joined rather than sitting apart like unrelated actions. */}

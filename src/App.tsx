@@ -42,12 +42,28 @@ export default function App() {
           st.setPlaying(false);
           st.splitAt(st.playhead);
         }
+      } else if (e.key === "i" || e.key === "I") {
+        if (st.doc.clip) {
+          st.setPlaying(false);
+          st.setInPoint();
+        }
+      } else if (e.key === "o" || e.key === "O") {
+        if (st.doc.clip) {
+          st.setPlaying(false);
+          st.setOutPoint();
+        }
+      } else if (e.key === "x" || e.key === "X") {
+        if (st.doc.clip) {
+          st.setPlaying(false);
+          st.cutRange();
+        }
       } else if (e.key === "Delete" || e.key === "Backspace") {
         if (st.selectedId) st.removeBlock(st.selectedId);
         else if (st.selectedSegmentId) st.removeSegment(st.selectedSegmentId);
       } else if (e.key === "Escape") {
         st.select(null);
         st.selectSegment(null);
+        st.clearMarkers();
       }
     };
     window.addEventListener("keydown", onKey);

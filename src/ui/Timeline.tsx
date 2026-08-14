@@ -74,6 +74,28 @@ const IconSplit = () => (
   </svg>
 );
 
+const IconIn = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+    <path d="M3.2 3.5v9" strokeLinecap="round" />
+    <path d="M12.8 4.2 8.8 8l4 3.8" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const IconOut = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+    <path d="M12.8 3.5v9" strokeLinecap="round" />
+    <path d="M3.2 4.2 7.2 8l-4 3.8" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const IconCut = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden>
+    <circle cx="4" cy="4" r="1.9" />
+    <circle cx="4" cy="12" r="1.9" />
+    <path d="M5.5 5.3 13 12M5.5 10.7 13 4" strokeLinecap="round" />
+  </svg>
+);
+
 type BlockMode = "move" | "left" | "right";
 
 interface BlockDrag {
@@ -119,6 +141,11 @@ export default function Timeline() {
   const removeBlock = useStore((s) => s.removeBlock);
   const trimSegment = useStore((s) => s.trimSegment);
   const splitAt = useStore((s) => s.splitAt);
+  const inPoint = useStore((s) => s.inPoint);
+  const outPoint = useStore((s) => s.outPoint);
+  const setInPoint = useStore((s) => s.setInPoint);
+  const setOutPoint = useStore((s) => s.setOutPoint);
+  const cutRange = useStore((s) => s.cutRange);
 
   const laneRef = useRef<HTMLDivElement | null>(null);
   const [width, setWidth] = useState(1);
@@ -230,6 +257,9 @@ export default function Timeline() {
     for (let t = 0; t <= duration + 1e-6; t += step / 4) minorTicks.push(t);
   }
 
+  const rangeValid = inPoint != null && outPoint != null && outPoint > inPoint;
+  const rangeLen = rangeValid ? outPoint! - inPoint! : 0;
+
   return (
     <section className="timeline">
       <div className="track-labels">
@@ -245,6 +275,46 @@ export default function Timeline() {
           >
             <IconSplit />
             Split
+          </button>
+          <button
+            className={`mini mark${inPoint != null ? " active" : ""}`}
+            disabled={!doc.clip}
+            onClick={() => {
+              setPlaying(false);
+              setInPoint();
+            }}
+            title="Mark where the cut begins (I)"
+            aria-label="Mark in point"
+          >
+            <IconIn />
+          </button>
+          <button
+            className={`mini mark${outPoint != null ? " active" : ""}`}
+            disabled={!doc.clip}
+            onClick={() => {
+              setPlaying(false);
+              setOutPoint();
+            }}
+            title="Mark where the cut ends (O)"
+            aria-label="Mark out point"
+          >
+            <IconOut />
+          </button>
+          <button
+            className={`mini cut${rangeValid ? " armed" : ""}`}
+            disabled={!rangeValid}
+            onClick={() => {
+              setPlaying(false);
+              cutRange();
+            }}
+            title={
+              rangeValid
+                ? `Remove ${rangeLen.toFixed(2)}s from the timeline (X)`
+                : "Mark In and Out points first"
+            }
+            aria-label="Cut the marked range"
+          >
+            <IconCut />
           </button>
         </div>
         <div className="track-label">
@@ -273,12 +343,27 @@ export default function Timeline() {
               <span>{fmtTime(t).slice(0, -3)}</span>
             </div>
           ))}
+          {inPoint != null && (
+            <div className="ruler-mark in" style={{ left: `${pct(inPoint)}%` }} title={`In ${fmtTime(inPoint)}`} />
+          )}
+          {outPoint != null && (
+            <div className="ruler-mark out" style={{ left: `${pct(outPoint)}%` }} title={`Out ${fmtTime(outPoint)}`} />
+          )}
           <div className="ruler-playhead" style={{ left: `${pct(playhead)}%` }}>
             <span className="ruler-time">{fmtTime(playhead).slice(0, -1)}</span>
           </div>
         </div>
 
         <div className="lanes" ref={laneRef}>
+          {/* The range about to be cut, drawn under everything: dimmed like
+              the void it's about to become. */}
+          {rangeValid && (
+            <div
+              className="cut-range"
+              style={{ left: `${pct(inPoint!)}%`, width: `${pct(rangeLen)}%` }}
+              title={`Cut ${fmtTime(inPoint!)} – ${fmtTime(outPoint!)}`}
+            />
+          )}
           <div className="lane video-lane" onPointerDown={() => select(null)}>
             {doc.clip ? (
               doc.segments.map((seg, i) => {
