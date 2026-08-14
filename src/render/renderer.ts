@@ -2,6 +2,7 @@ import type { Background, Doc, Point } from "../doc/types";
 import { sourceAt } from "../doc/time";
 import { cameraAt, REST, type Camera } from "./camera";
 import { cursorAt, cursorTrail } from "./cursor";
+import { add, mark } from "./profile";
 
 export interface Rect {
   x: number;
@@ -252,7 +253,9 @@ export function renderFrame(
   // that knows the preview might be smaller.
   ctx.setTransform(viewScale, 0, 0, viewScale, 0, 0);
   ctx.clearRect(0, 0, ow, oh);
+  const tBg = mark();
   paintBackground(ctx, doc.background, ow, oh);
+  add("background", tBg);
 
   // Camera acts on the framed recording only — the background stays put, which
   // reads as a camera pushing into the screen rather than the whole poster
@@ -273,6 +276,7 @@ export function renderFrame(
   // Cached shadow, blitted rather than blurred. It scales with the camera,
   // which reads correctly: the whole framed recording is what's moving closer.
   if (doc.frame.shadowOpacity > 0) {
+    const tShadow = mark();
     const sprite = shadowSprite(
       frame.w,
       frame.h,
@@ -282,19 +286,27 @@ export function renderFrame(
       doc.frame.shadowY,
     );
     ctx.drawImage(sprite.canvas, frame.x - sprite.pad, frame.y - sprite.pad);
+    add("shadow", tShadow);
   }
 
+  // The rounded clip is timed with the video blit rather than separately: a
+  // non-rectangular clip is set up lazily, so its real cost lands on whatever
+  // draws through it.
+  const tVideo = mark();
   ctx.save();
   ctx.beginPath();
   ctx.roundRect(frame.x, frame.y, frame.w, frame.h, radius);
   ctx.clip();
   ctx.drawImage(source, frame.x, frame.y, frame.w, frame.h);
+  add("video", tVideo);
 
   // Inside the clip and inside the camera transform: the decoration belongs to
   // the recording, so it zooms and pans with it rather than floating over the
   // output at a fixed size.
+  const tCursor = mark();
   const hit = sourceAt(doc, time);
   if (hit) paintCursor(ctx, doc, frame, hit.srcTime);
+  add("cursor", tCursor);
 
   ctx.restore();
 

@@ -4,6 +4,7 @@ import { docDuration, sourceAt } from "../doc/time";
 import type { Doc } from "../doc/types";
 import { cameraAt, REST } from "../render/camera";
 import { canvasToVideo, layout, renderFrame } from "../render/renderer";
+import { endFrame, profiling, setProfiling, snapshot, type FrameStats } from "../render/profile";
 import { cssVar } from "../theme";
 import { fmtTime } from "./format";
 
@@ -113,6 +114,7 @@ export default function Stage() {
    *  because every write re-renders the timeline and inspector. */
   const timeRef = useRef(0);
   const [diag, setDiag] = useState<Diagnostics | null>(null);
+  const [stats, setStats] = useState<FrameStats | null>(null);
   const [showDiag, setShowDiag] = useState(false);
   const [fetchResult, setFetchResult] = useState<string>("(not tried)");
   /** Wall-clock anchor for playback, so cuts and speed changes advance the
@@ -236,11 +238,14 @@ export default function Stage() {
   }, []);
 
   useEffect(() => {
+    setProfiling(showDiag);
     if (!showDiag) {
       setDiag(null);
+      setStats(null);
       return;
     }
     const id = setInterval(() => {
+      setStats(snapshot());
       const v = videoRef.current;
       if (!v) return setDiag(null);
       const err = v.error;
@@ -259,6 +264,9 @@ export default function Stage() {
   useEffect(() => {
     let raf = 0;
     let lastPush = 0;
+    /** Timestamp of the previous *rendered* frame, for the interval average.
+     *  Skipped idle frames don't count — they aren't stutter. */
+    let lastDrawn = 0;
 
     const loop = (now: number) => {
       raf = requestAnimationFrame(loop);
@@ -316,11 +324,18 @@ export default function Stage() {
 
       dirtyRef.current = false;
 
+      const started = profiling() ? performance.now() : 0;
+
       const ready = v && v.readyState >= 2 ? v : null;
       renderFrame(ctx, st.doc, t, ready, viewScaleRef.current);
 
       const sel = st.doc.blocks.find((b) => b.id === st.selectedId);
       if (sel) drawTarget(ctx, st.doc, t, sel.target, viewScaleRef.current);
+
+      if (profiling()) {
+        endFrame(performance.now() - started, lastDrawn ? now - lastDrawn : 0);
+        lastDrawn = now;
+      }
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
@@ -375,6 +390,43 @@ export default function Stage() {
             <div><b>error</b> {diag.error}</div>
             <div><b>dims</b> {diag.dims} · <b>t</b> {diag.currentTime.toFixed(2)}</div>
             <div><b>fetch</b> {fetchResult}</div>
+
+            {stats && (
+              <>
+                <div className="diag-rule" />
+                <div>
+                  <b>canvas</b> {canvasRef.current?.width}×{canvasRef.current?.height}
+                  {" · "}
+                  <b>scale</b> {viewScaleRef.current.toFixed(3)}
+                </div>
+                {/* Interval is the honest number: JS time misses work the
+                    compositor does after drawImage returns. */}
+                <div>
+                  <b>fps</b> {stats.interval > 0 ? (1000 / stats.interval).toFixed(1) : "–"}
+                  {" · "}
+                  <b>frame</b> {stats.interval.toFixed(1)}ms
+                  {" · "}
+                  <b>worst</b> {stats.worst.toFixed(1)}ms
+                </div>
+                <div>
+                  <b>js</b> {stats.js.toFixed(2)}ms
+                  {" ("}
+                  {stats.interval > 0
+                    ? ((stats.js / stats.interval) * 100).toFixed(0)
+                    : "0"}
+                  {"% of frame)"}
+                </div>
+                <div>
+                  <b>bg</b> {stats.phases.background.toFixed(2)}
+                  {" · "}
+                  <b>shadow</b> {stats.phases.shadow.toFixed(2)}
+                  {" · "}
+                  <b>video</b> {stats.phases.video.toFixed(2)}
+                  {" · "}
+                  <b>cursor</b> {stats.phases.cursor.toFixed(2)}
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>

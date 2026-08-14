@@ -1038,6 +1038,15 @@ input[type="checkbox"]:disabled {
   font-weight: 600;
 }
 
+/* Splits media state from frame timing — two different investigations that
+   happen to share one panel. */
+.diag-rule {
+  height: 1px;
+  margin: 6px 0;
+  background: currentColor;
+  opacity: 0.25;
+}
+
 /* ---------- timeline ---------- */
 
 .timeline {
