@@ -116,27 +116,34 @@ select {
 
 /* ---------- shell ---------- */
 
+/* One continuous surface. The window edge is the frame, so nothing floats:
+   chrome is flush, regions are divided by hairlines, and the only region that
+   sits *back* is the stage — it drops to the page colour so the preview reads
+   as an object resting on a workspace rather than a fourth panel. */
 .app {
   height: 100vh;
   display: grid;
-  grid-template-rows: 52px 1fr 190px;
-  gap: 10px;
-  padding: 10px;
+  grid-template-rows: 48px 1fr 190px;
 }
 
 .body {
   display: grid;
   grid-template-columns: 248px 1fr 320px;
-  gap: 10px;
   min-height: 0;
 }
 
 .panel {
   background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--r-panel);
   overflow-y: auto;
   min-height: 0;
+}
+
+.panel.library {
+  border-right: 1px solid var(--border);
+}
+
+.panel.inspector {
+  border-left: 1px solid var(--border);
 }
 
 .panel::-webkit-scrollbar {
@@ -160,23 +167,14 @@ select {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  padding: 0 14px;
+  padding: 0 16px;
   background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--r-panel);
+  border-bottom: 1px solid var(--border);
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 9px;
-}
-
-.logo {
-  width: 20px;
-  height: 20px;
-  border-radius: 6px;
-  background: linear-gradient(135deg, var(--ctp-blue), var(--ctp-mauve));
 }
 
 .brand-name {
