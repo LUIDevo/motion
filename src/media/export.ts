@@ -10,28 +10,53 @@ export interface ExportOptions {
   signal?: { cancelled: boolean };
 }
 
+/** How long a single frame's decode may take before the export gives up. */
+const SEEK_TIMEOUT_MS = 15_000;
+
 /**
- * Seek and wait for the frame to actually be decoded. Seeking to a time the
- * element is already at fires nothing, so the timeout keeps the export from
- * hanging on a no-op seek.
+ * Seek and wait for the frame to actually be decoded.
+ *
+ * Seeking to a time the element is already at fires no event, so that case
+ * returns immediately. Everything else waits for `seeked` and *fails* on
+ * timeout rather than carrying on: this used to resolve after 400ms regardless,
+ * which meant a slow decode silently wrote the previous frame's pixels into the
+ * export. A visibly failed render is recoverable; a file that is quietly wrong
+ * in a few places is not.
  */
 function seek(v: HTMLVideoElement, t: number): Promise<void> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     if (Math.abs(v.currentTime - t) < 1e-4) return resolve();
-    let done = false;
-    const finish = () => {
-      if (done) return;
-      done = true;
-      v.removeEventListener("seeked", finish);
+
+    let timer = 0;
+    const cleanup = () => {
+      clearTimeout(timer);
+      v.removeEventListener("seeked", onSeeked);
+      v.removeEventListener("error", onError);
+    };
+    const onSeeked = () => {
+      cleanup();
       resolve();
     };
-    v.addEventListener("seeked", finish);
-    setTimeout(finish, 400);
+    const onError = () => {
+      cleanup();
+      reject(new Error(`Could not decode the source at ${t.toFixed(3)}s.`));
+    };
+
+    v.addEventListener("seeked", onSeeked);
+    v.addEventListener("error", onError);
+    timer = window.setTimeout(() => {
+      cleanup();
+      reject(
+        new Error(
+          `Timed out decoding the source at ${t.toFixed(3)}s. The file may be ` +
+            `corrupt, or the codec too slow to seek in this webview.`,
+        ),
+      );
+    }, SEEK_TIMEOUT_MS);
+
     v.currentTime = t;
   });
 }
-
-const stripDataUrl = (s: string) => s.slice(s.indexOf(",") + 1);
 
 /**
  * Render the timeline frame by frame and hand each one to ffmpeg.
@@ -54,7 +79,10 @@ export async function exportVideo(
   const canvas = document.createElement("canvas");
   canvas.width = doc.output.width;
   canvas.height = doc.output.height;
-  const ctx = canvas.getContext("2d");
+  // Every frame is read straight back out of this canvas, which is exactly the
+  // access pattern this hint exists for — without it the canvas may live in
+  // GPU memory and each read costs a pipeline stall.
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
   if (!ctx) throw new Error("Could not create an export canvas.");
 
   // A dedicated element so scrubbing the export doesn't fight the preview.
@@ -70,7 +98,13 @@ export async function exportVideo(
     v.onerror = () => rej(new Error("Could not decode the source video."));
   });
 
-  const dir = await invoke<string>("export_begin");
+  await invoke("export_begin", {
+    width: canvas.width,
+    height: canvas.height,
+    fps,
+    crf: quality,
+    out: outPath,
+  });
 
   try {
     for (let i = 0; i < total; i++) {
@@ -81,16 +115,30 @@ export async function exportVideo(
       const hit = sourceAt(doc, t);
       if (hit) await seek(v, Math.min(hit.srcTime, doc.clip.duration - 1e-3));
       renderFrame(ctx, doc, t, v);
-      const data = stripDataUrl(canvas.toDataURL("image/jpeg", 0.95));
-      await invoke("export_frame", { dir, index: i, data });
+
+      // Raw RGBA straight into ffmpeg's stdin. Passing the buffer as the whole
+      // argument — rather than a field of an object — is what makes Tauri send
+      // it as a binary body instead of serialising it as a JSON number array.
+      const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      // A view over the same memory, not a copy — ImageData hands back a
+      // clamped array and Tauri wants a plain one.
+      const bytes = new Uint8Array(
+        frame.data.buffer,
+        frame.data.byteOffset,
+        frame.data.byteLength,
+      );
+      await invoke("export_frame", bytes);
+
       opts.onProgress?.(i + 1, total);
     }
 
-    await invoke("export_finish", { dir, fps, crf: quality, out: outPath });
+    await invoke("export_finish");
+  } catch (err) {
+    await invoke("export_cancel").catch(() => {});
+    throw err;
   } finally {
     v.removeAttribute("src");
     v.load();
-    await invoke("export_cleanup", { dir }).catch(() => {});
   }
 }
 

@@ -14,6 +14,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(recorder::RecorderState::default())
+        .manage(export::ExportState::default())
         .setup(|app| {
             // The webview loads media over loopback HTTP, so the server has to
             // exist before any clip can be opened.
@@ -26,7 +27,7 @@ pub fn run() {
             export::export_begin,
             export::export_frame,
             export::export_finish,
-            export::export_cleanup,
+            export::export_cancel,
             export::ffmpeg_available,
             proxy::make_proxy,
             media_server::media_url,
