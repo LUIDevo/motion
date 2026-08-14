@@ -85,6 +85,7 @@ export default function Topbar() {
   const canRedo = useStore((s) => s.hist.future.length > 0);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [recording, setRecording] = useState(false);
+  const [showError, setShowError] = useState(false);
 
   const onImport = async () => {
     try {
@@ -203,10 +204,39 @@ export default function Topbar() {
           <span className="status busy">{status.label}…</span>
         )}
         {status.kind === "done" && <span className="status done">{status.label}</span>}
+        {/* A one-line summary in the bar, the rest on demand. Recorder failures
+            arrive with the encoder's log attached, and collapsing that to its
+            first line threw away the only part that said what went wrong. */}
         {status.kind === "error" && (
-          <span className="status error" title={status.label}>
-            {status.label.split("\n")[0]}
-          </span>
+          <>
+            <button
+              className="status error"
+              onClick={() => setShowError(true)}
+              title="Show the full error"
+            >
+              {status.label.split("\n")[0]}
+              {status.label.includes("\n") && <span className="status-more">details</span>}
+            </button>
+            {showError && (
+              <div className="error-sheet" onClick={() => setShowError(false)}>
+                <div className="error-body" onClick={(e) => e.stopPropagation()}>
+                  <div className="error-head">
+                    <h3>Something went wrong</h3>
+                    <button className="ghost" onClick={() => setShowError(false)}>
+                      Close
+                    </button>
+                  </div>
+                  <pre>{status.label}</pre>
+                  <button
+                    className="wide-btn"
+                    onClick={() => void navigator.clipboard?.writeText(status.label)}
+                  >
+                    Copy
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {/* Undo and redo are one control with two directions, so they're

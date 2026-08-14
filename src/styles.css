@@ -1038,6 +1038,66 @@ input[type="checkbox"]:disabled {
   font-weight: 600;
 }
 
+/* A diagnostic is worth nothing if it can't be read. Errors that carry an
+   encoder log open into a sheet rather than being cropped to one line. */
+.status-more {
+  margin-left: 7px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--danger);
+  color: var(--panel);
+  font-size: 9.5px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.error-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(0, 0, 0, 0.35);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.error-body {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--r-panel);
+  padding: 18px 20px;
+  width: min(760px, 100%);
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.error-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.error-head h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.022em;
+}
+
+.error-body pre {
+  margin: 0 0 12px;
+  padding: 12px;
+  background: var(--field);
+  border-radius: var(--r-field);
+  font-family: ui-monospace, "SF Mono", monospace;
+  font-size: 11.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 /* Splits media state from frame timing — two different investigations that
    happen to share one panel. */
 .diag-rule {

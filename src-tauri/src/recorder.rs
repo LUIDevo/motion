@@ -21,7 +21,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::io::{BufRead, BufReader};
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager, State};
 
 /// What a finished recording produces: the video plus the cursor track that
@@ -174,6 +174,21 @@ pub fn pick_encoder() -> Encoder {
     }
 }
 
+/// How many buffers the queue may hold. Small on purpose: this exists to
+/// absorb encoder jitter, not to bank seconds of 1440p video.
+const QUEUE_BUFFERS: u32 = 6;
+
+/// Buffers to negotiate with PipeWire.
+///
+/// This has to comfortably exceed `QUEUE_BUFFERS` plus whatever is in flight
+/// through convert/rate/encode. `pipewiresrc` hands downstream the compositor's
+/// own buffers rather than copies, so anything holding a buffer is holding one
+/// the compositor can't draw the next frame into. The default minimum is 1:
+/// with a 16-deep queue that starved xdg-desktop-portal-hyprland within a
+/// fraction of a second, which it reports as `Out of buffers` before giving up
+/// — five frames of video from a 29-second recording.
+const POOL_BUFFERS: u32 = 32;
+
 /// Build the capture pipeline.
 ///
 /// The queue directly after the source is the important part, and its absence
@@ -182,6 +197,9 @@ pub fn pick_encoder() -> Encoder {
 /// from the compositor and never recovers. `leaky=downstream` makes a
 /// struggling encoder drop frames instead — a dropped frame costs a moment of
 /// smoothness, a stall costs the entire recording.
+///
+/// The queue must be paid for in pool size, though, which is the other half of
+/// the same problem: see `POOL_BUFFERS`.
 fn build_pipeline(fd: i32, node: u32, out: &Path, fps: u32, enc: Encoder) -> Vec<String> {
     let mut a: Vec<String> = vec![
         // -e makes gst-launch send EOS on SIGINT, which is what finalises the
@@ -190,10 +208,11 @@ fn build_pipeline(fd: i32, node: u32, out: &Path, fps: u32, enc: Encoder) -> Vec
         "pipewiresrc".into(),
         format!("fd={fd}"),
         format!("path={node}"),
+        format!("min-buffers={POOL_BUFFERS}"),
         "!".into(),
         "queue".into(),
         "leaky=downstream".into(),
-        "max-size-buffers=16".into(),
+        format!("max-size-buffers={QUEUE_BUFFERS}"),
         "max-size-bytes=0".into(),
         "max-size-time=0".into(),
         "!".into(),
@@ -350,7 +369,16 @@ pub async fn stop_recording(state: State<'_, RecorderState>) -> Result<Recording
     // through shutdown and no longer covers the same span as the video.
     let samples = tracker.stop();
 
-    let _ = child.wait().map_err(|e| e.to_string())?;
+    // Bounded wait. `-e` asks gst-launch to flush EOS through the muxer, which
+    // takes a moment on a long file — but if the pipeline is wedged it never
+    // exits at all, and an unbounded wait here is what left the UI saying
+    // "Finishing recording" with no way forward. Past the grace period the
+    // file is worth less than the app being usable, so take the file we have.
+    let flushed = wait_for(&mut child, Duration::from_secs(20));
+    if !flushed {
+        let _ = child.kill();
+        let _ = child.wait();
+    }
 
     let (width, height) = probe_dimensions(&video_path).unwrap_or((
         (monitor.width as f32 * monitor.scale) as u32,
@@ -372,8 +400,17 @@ pub async fn stop_recording(state: State<'_, RecorderState>) -> Result<Recording
     // so whatever the track is longer by is exactly that startup lead, and
     // leaving it in would put every follow-cursor target ahead of where the
     // pointer actually is on screen.
+    //
+    // Clamped, because this correction trusts the measured duration. When a
+    // capture stalls, that duration is near zero and the "lead" becomes the
+    // whole recording — which silently filtered almost every sample out and
+    // left a cursor track of a few hundred bytes. A handshake takes a moment,
+    // not seconds; past that the probe is wrong rather than the lead being
+    // real, and no correction beats a nonsensical one.
+    const MAX_LEAD: f64 = 3.0;
     let captured_for_sync = probe_duration(&video_path).unwrap_or(elapsed);
-    let lead = (elapsed - captured_for_sync).max(0.0);
+    let raw_lead = (elapsed - captured_for_sync).max(0.0);
+    let lead = if raw_lead > MAX_LEAD { 0.0 } else { raw_lead };
 
     let scaled: Vec<_> = samples
         .into_iter()
@@ -395,19 +432,31 @@ pub async fn stop_recording(state: State<'_, RecorderState>) -> Result<Recording
     )
     .map_err(|e| e.to_string())?;
 
+    // Keep the encoder's own account of the run next to the recording. Held
+    // only in memory it died with the process, which meant a capture that
+    // failed once could not be diagnosed afterwards — the evidence was gone by
+    // the time anyone asked what happened.
+    let log_path = video_path.with_extension("gst.log");
+    let lines = log
+        .lock()
+        .map(|v| v.clone())
+        .unwrap_or_default();
+    let _ = std::fs::write(&log_path, lines.join("\n"));
+
     // A capture that stalls still leaves a valid but nearly empty file, which
     // would otherwise load as a working clip and look like an editor bug.
     // Compare against how long we were actually recording and refuse it.
     let captured = probe_duration(&video_path).unwrap_or(0.0);
     if elapsed > 2.0 && captured < elapsed * 0.5 {
-        let tail = log
-            .lock()
-            .map(|v| v.iter().rev().take(12).cloned().collect::<Vec<_>>().join("\n"))
-            .unwrap_or_default();
+        // Last 12 lines, oldest first. Taking from a reversed iterator gets the
+        // right lines in the wrong order, which read as a garbled log.
+        let tail: Vec<_> = lines.iter().rev().take(12).rev().cloned().collect();
         return Err(format!(
             "capture stalled: recorded {elapsed:.1}s but only {captured:.1}s of video was \
-             written to {}.\n\ngst-launch said:\n{tail}",
-            video_path.display()
+             written to {}.\n\ngst-launch said:\n{}\n\nFull log: {}",
+            video_path.display(),
+            tail.join("\n"),
+            log_path.display()
         ));
     }
 
@@ -421,6 +470,26 @@ pub async fn stop_recording(state: State<'_, RecorderState>) -> Result<Recording
         duration: if captured > 0.0 { captured } else { elapsed },
         cursor: scaled,
     })
+}
+
+/// Wait for `child` for at most `limit`. Returns whether it exited in time.
+///
+/// `Child` has no timed wait in std, and pulling in a process-management crate
+/// to poll one pid would be the tail wagging the dog.
+fn wait_for(child: &mut std::process::Child, limit: Duration) -> bool {
+    let deadline = Instant::now() + limit;
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => return true,
+            // Nothing to wait for; treat as done rather than spinning.
+            Err(_) => return true,
+            Ok(None) => {}
+        }
+        if Instant::now() >= deadline {
+            return false;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
 }
 
 fn probe_duration(path: &Path) -> Option<f64> {
