@@ -46,7 +46,7 @@ const EFFECTS = [
   {
     id: "zoom",
     name: "Zoom",
-    desc: "Push the camera into a point",
+    desc: "Push in on the cursor or a fixed point",
     icon: <IconZoom />,
     tint: "var(--tint-mauve)",
     fg: "var(--ctp-mauve)",
