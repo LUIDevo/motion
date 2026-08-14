@@ -152,6 +152,9 @@ export default function Stage() {
       viewScaleRef.current = scale;
       canvas.width = Math.max(1, Math.round(output.width * scale));
       canvas.height = Math.max(1, Math.round(output.height * scale));
+      // Setting either dimension clears the canvas, so this always needs a
+      // repaint even when the composition itself hasn't moved.
+      dirtyRef.current = true;
     };
 
     resize();
@@ -159,6 +162,24 @@ export default function Stage() {
     ro.observe(el);
     return () => ro.disconnect();
   }, [output.width, output.height]);
+
+  // Anything in the document, the playhead or the selection changes what the
+  // frame should look like. Rather than enumerate them, treat every store
+  // write as a repaint: writes are user-driven and rare next to 60fps.
+  useEffect(() => useStore.subscribe(() => { dirtyRef.current = true; }), []);
+
+  // The element decodes asynchronously, so a seek lands some frames after the
+  // playhead moved. These are the events that mean "there is a new picture".
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    const mark = () => { dirtyRef.current = true; };
+    const events = ["seeked", "loadeddata", "canplay", "timeupdate", "resize"];
+    for (const e of events) v.addEventListener(e, mark);
+    return () => {
+      for (const e of events) v.removeEventListener(e, mark);
+    };
+  }, []);
 
   useEffect(() => {
     if (clip) {
@@ -289,7 +310,11 @@ export default function Stage() {
       } else {
         tickRef.current = now;
         timeRef.current = t;
+        // Paused and nothing has changed: the last frame is still correct.
+        if (!dirtyRef.current) return;
       }
+
+      dirtyRef.current = false;
 
       const ready = v && v.readyState >= 2 ? v : null;
       renderFrame(ctx, st.doc, t, ready, viewScaleRef.current);
